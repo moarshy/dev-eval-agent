@@ -207,10 +207,6 @@ Each stage provides detailed progress updates and error handling.
 - **Stage-by-stage progress** with timing information
 - **Background execution** without blocking the UI
 
-## 🤝 Contributing
-
-We welcome contributions! Please feel free to submit issues, feature requests, or pull requests.
-
 ### Development Setup
 
 1. **Clone and install** as described above
@@ -222,18 +218,3 @@ We welcome contributions! Please feel free to submit issues, feature requests, o
    ```bash
    uv run pytest
    ```
-
-## 📝 License
-
-MIT License - see LICENSE file for details.
-
-## 🙏 Acknowledgments
-
-- **[Crawl4AI](https://github.com/unclecode/crawl4ai)** - Advanced web crawling capabilities
-- **[DSPy](https://github.com/stanfordnlp/dspy)** - AI-powered document analysis
-- **[FastAPI](https://fastapi.tiangolo.com/)** - Modern web framework
-- **[Tailwind CSS](https://tailwindcss.com/)** - Beautiful, responsive UI styling
-
----
-
-**🚀 Ready to test your developer tools? Get started with DevAgent today!**
