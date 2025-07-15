@@ -87,58 +87,98 @@
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div class="bg-gray-800/30 rounded-lg p-4">
                         <div class="text-sm text-gray-400">Total Test Cases</div>
-                        <div class="text-xl font-bold" x-text="runData.results.overall_report?.total_test_cases"></div>
+                        <div class="text-xl font-bold" x-text="runData.results.overall_report?.total_tests || 0"></div>
                     </div>
                     <div class="bg-gray-800/30 rounded-lg p-4">
-                        <div class="text-sm text-gray-400">Passed</div>
-                        <div class="text-xl font-bold text-green-400" x-text="runData.results.overall_report?.passed_tests"></div>
+                        <div class="text-sm text-gray-400">Total Pages</div>
+                        <div class="text-xl font-bold text-blue-400" x-text="runData.results.overall_report?.total_pages || 0"></div>
                     </div>
                     <div class="bg-gray-800/30 rounded-lg p-4">
-                        <div class="text-sm text-gray-400">Failed</div>
-                        <div class="text-xl font-bold text-red-400" x-text="runData.results.overall_report?.failed_tests"></div>
+                        <div class="text-sm text-gray-400">Execution Time</div>
+                        <div class="text-xl font-bold text-purple-400" x-text="(runData.results.overall_report?.total_execution_time || 0).toFixed(1) + 's'"></div>
                     </div>
                     <div class="bg-gray-800/30 rounded-lg p-4">
                         <div class="text-sm text-gray-400">Success Rate</div>
-                        <div class="text-xl font-bold" x-text="runData.results.overall_report?.success_rate + '%'"></div>
+                        <div class="text-xl font-bold" x-text="(runData.results.overall_report?.overall_success_rate || 0).toFixed(1) + '%'"></div>
                     </div>
                 </div>
 
-                <!-- AI Insights -->
-                <div x-show="runData.results.overall_report?.ai_insights" class="bg-gradient-to-r from-purple-900/30 to-blue-900/30 rounded-lg p-6">
-                    <h3 class="text-lg font-bold mb-3 text-purple-300">🧠 AI Analysis & Insights</h3>
-                    <div class="space-y-4">
-                        <div x-show="runData.results.overall_report.ai_insights?.key_findings">
-                            <h4 class="font-medium text-blue-300">Key Findings</h4>
-                            <template x-for="finding in runData.results.overall_report.ai_insights.key_findings">
-                                <div class="ml-4 text-gray-300" x-text="'• ' + finding"></div>
+                <!-- Executive Summary -->
+                <div x-show="runData.results.overall_report?.executive_summary" class="bg-gradient-to-r from-blue-900/30 to-purple-900/30 rounded-lg p-6 mb-6">
+                    <h3 class="text-lg font-bold mb-3 text-blue-300">📋 Executive Summary</h3>
+                    <div class="text-gray-300 whitespace-pre-wrap" x-text="runData.results.overall_report.executive_summary"></div>
+                </div>
+
+                <!-- Documentation Assessment -->
+                <div x-show="runData.results.overall_report?.overall_documentation_assessment" class="bg-gradient-to-r from-green-900/30 to-blue-900/30 rounded-lg p-6 mb-6">
+                    <h3 class="text-lg font-bold mb-3 text-green-300">📚 Documentation Assessment</h3>
+                    <div class="text-gray-300 whitespace-pre-wrap" x-text="runData.results.overall_report.overall_documentation_assessment"></div>
+                </div>
+
+                <!-- AI Insights Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Systemic Issues -->
+                    <div x-show="runData.results.overall_report?.systemic_issues?.length > 0" class="bg-gradient-to-r from-red-900/20 to-orange-900/20 rounded-lg p-6">
+                        <h3 class="text-lg font-bold mb-3 text-red-300">🚨 Systemic Issues</h3>
+                        <div class="space-y-2">
+                            <template x-for="issue in runData.results.overall_report.systemic_issues">
+                                <div class="ml-4 text-gray-300" x-text="'• ' + issue"></div>
                             </template>
                         </div>
-                        <div x-show="runData.results.overall_report.ai_insights?.improvement_suggestions">
-                            <h4 class="font-medium text-blue-300">Improvement Suggestions</h4>
-                            <template x-for="suggestion in runData.results.overall_report.ai_insights.improvement_suggestions">
-                                <div class="ml-4 text-gray-300" x-text="'• ' + suggestion"></div>
+                    </div>
+
+                    <!-- Strength Areas -->
+                    <div x-show="runData.results.overall_report?.strength_areas?.length > 0" class="bg-gradient-to-r from-green-900/20 to-teal-900/20 rounded-lg p-6">
+                        <h3 class="text-lg font-bold mb-3 text-green-300">🏆 Strength Areas</h3>
+                        <div class="space-y-2">
+                            <template x-for="strength in runData.results.overall_report.strength_areas">
+                                <div class="ml-4 text-gray-300" x-text="'• ' + strength"></div>
                             </template>
                         </div>
-                        <div x-show="runData.results.overall_report.ai_insights?.documentation_quality_score">
-                            <h4 class="font-medium text-blue-300">Documentation Quality Score</h4>
-                            <div class="ml-4 text-xl font-bold text-yellow-400" x-text="runData.results.overall_report.ai_insights.documentation_quality_score + '/10'"></div>
+                    </div>
+
+                    <!-- Immediate Actions -->
+                    <div x-show="runData.results.overall_report?.immediate_actions?.length > 0" class="bg-gradient-to-r from-orange-900/20 to-red-900/20 rounded-lg p-6">
+                        <h3 class="text-lg font-bold mb-3 text-orange-300">⚡ Immediate Actions</h3>
+                        <div class="space-y-2">
+                            <template x-for="action in runData.results.overall_report.immediate_actions">
+                                <div class="ml-4 text-gray-300" x-text="'• ' + action"></div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Strategic Recommendations -->
+                    <div x-show="runData.results.overall_report?.strategic_recommendations?.length > 0" class="bg-gradient-to-r from-purple-900/20 to-blue-900/20 rounded-lg p-6">
+                        <h3 class="text-lg font-bold mb-3 text-purple-300">💡 Strategic Recommendations</h3>
+                        <div class="space-y-2">
+                            <template x-for="recommendation in runData.results.overall_report.strategic_recommendations">
+                                <div class="ml-4 text-gray-300" x-text="'• ' + recommendation"></div>
+                            </template>
                         </div>
                     </div>
                 </div>
 
-                <!-- Common Issues -->
-                <div x-show="runData.results.overall_report?.common_issues?.length > 0">
-                    <h3 class="text-lg font-bold mb-3">⚠️ Common Issues</h3>
-                    <div class="space-y-2">
-                        <template x-for="issue in runData.results.overall_report.common_issues">
-                            <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-3">
-                                <div class="font-medium text-yellow-300" x-text="issue.issue_type"></div>
-                                <div class="text-gray-300" x-text="issue.description"></div>
-                                <div class="text-sm text-gray-400 mt-1" x-text="'Affected pages: ' + issue.affected_pages.join(', ')"></div>
-                            </div>
-                        </template>
+                <!-- Best/Worst Performing Pages -->
+                <div x-show="runData.results.overall_report?.best_performing_pages?.length > 0 || runData.results.overall_report?.most_problematic_pages?.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                    <div x-show="runData.results.overall_report?.best_performing_pages?.length > 0" class="bg-gradient-to-r from-green-900/20 to-emerald-900/20 rounded-lg p-6">
+                        <h3 class="text-lg font-bold mb-3 text-green-300">🌟 Best Performing Pages</h3>
+                        <div class="space-y-2">
+                            <template x-for="page in runData.results.overall_report.best_performing_pages">
+                                <div class="text-sm text-gray-300 truncate" x-text="page"></div>
+                            </template>
+                        </div>
+                    </div>
+                    <div x-show="runData.results.overall_report?.most_problematic_pages?.length > 0" class="bg-gradient-to-r from-red-900/20 to-pink-900/20 rounded-lg p-6">
+                        <h3 class="text-lg font-bold mb-3 text-red-300">🔍 Most Problematic Pages</h3>
+                        <div class="space-y-2">
+                            <template x-for="page in runData.results.overall_report.most_problematic_pages">
+                                <div class="text-sm text-gray-300 truncate" x-text="page"></div>
+                            </template>
+                        </div>
                     </div>
                 </div>
+
+
             </div>
         </div>
     </div>
