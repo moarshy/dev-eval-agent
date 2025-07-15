@@ -1,0 +1,399 @@
+{% extends "base.html" %}
+
+{% block title %}Pipeline Results - {{ run_data.config.tool_name }}{% endblock %}
+
+{% block content %}
+<div class="fade-in" x-data="resultsPage('{{ run_id }}')" x-init="init()">
+    
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                    <span x-text="runData.config.tool_name"></span> Pipeline Results
+                </h1>
+                <p class="text-gray-300 mt-2">
+                    Started: <span x-text="formatDate(runData.start_time)"></span>
+                    <span x-show="runData.end_time">
+                        • Duration: <span x-text="formatDuration()"></span>
+                    </span>
+                </p>
+            </div>
+            <div class="flex items-center gap-4">
+                <span 
+                    :class="{
+                        'bg-green-500': runData.status === 'completed',
+                        'bg-red-500': runData.status === 'failed',
+                        'bg-blue-500': runData.status === 'running',
+                        'bg-yellow-500': runData.status === 'starting'
+                    }"
+                    class="px-4 py-2 rounded-full text-sm font-medium"
+                    :class="runData.status === 'running' ? 'pulse-slow' : ''"
+                    x-text="runData.status.toUpperCase()"
+                ></span>
+                <button 
+                    @click="refreshData()"
+                    class="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                    🔄 Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Display -->
+    <div x-show="runData.error" class="mb-8">
+        <div class="glass rounded-xl p-6 border-l-4 border-red-500">
+            <h3 class="text-xl font-bold text-red-400 mb-2">Pipeline Error</h3>
+            <p class="text-red-300" x-text="runData.error"></p>
+        </div>
+    </div>
+
+    <!-- Progress Summary -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="glass rounded-xl p-6 text-center">
+            <div class="text-3xl font-bold text-blue-400" x-text="runData.results?.total_pages || 0"></div>
+            <div class="text-gray-300">Total Pages</div>
+        </div>
+        <div class="glass rounded-xl p-6 text-center">
+            <div class="text-3xl font-bold text-green-400" x-text="runData.results?.completed_pages || 0"></div>
+            <div class="text-gray-300">Completed</div>
+        </div>
+        <div class="glass rounded-xl p-6 text-center">
+            <div class="text-3xl font-bold text-red-400" x-text="runData.results?.failed_pages || 0"></div>
+            <div class="text-gray-300">Failed</div>
+        </div>
+        <div class="glass rounded-xl p-6 text-center">
+            <div class="text-3xl font-bold text-purple-400" x-text="Object.keys(runData.results?.page_reports || {}).length"></div>
+            <div class="text-gray-300">Reports</div>
+        </div>
+    </div>
+
+    <!-- Overall Report -->
+    <div x-show="runData.results?.overall_report" class="mb-8">
+        <div class="glass rounded-xl p-6">
+            <h2 class="text-2xl font-bold mb-6 flex items-center gap-2">
+                📋 Overall Report
+                <button 
+                    @click="copyToClipboard(JSON.stringify(runData.results.overall_report, null, 2))"
+                    class="text-sm px-3 py-1 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
+                >
+                    Copy JSON
+                </button>
+            </h2>
+            
+            <div x-show="runData.results.overall_report" class="space-y-6">
+                <!-- Summary Stats -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-gray-800/30 rounded-lg p-4">
+                        <div class="text-sm text-gray-400">Total Test Cases</div>
+                        <div class="text-xl font-bold" x-text="runData.results.overall_report?.total_test_cases"></div>
+                    </div>
+                    <div class="bg-gray-800/30 rounded-lg p-4">
+                        <div class="text-sm text-gray-400">Passed</div>
+                        <div class="text-xl font-bold text-green-400" x-text="runData.results.overall_report?.passed_tests"></div>
+                    </div>
+                    <div class="bg-gray-800/30 rounded-lg p-4">
+                        <div class="text-sm text-gray-400">Failed</div>
+                        <div class="text-xl font-bold text-red-400" x-text="runData.results.overall_report?.failed_tests"></div>
+                    </div>
+                    <div class="bg-gray-800/30 rounded-lg p-4">
+                        <div class="text-sm text-gray-400">Success Rate</div>
+                        <div class="text-xl font-bold" x-text="runData.results.overall_report?.success_rate + '%'"></div>
+                    </div>
+                </div>
+
+                <!-- AI Insights -->
+                <div x-show="runData.results.overall_report?.ai_insights" class="bg-gradient-to-r from-purple-900/30 to-blue-900/30 rounded-lg p-6">
+                    <h3 class="text-lg font-bold mb-3 text-purple-300">🧠 AI Analysis & Insights</h3>
+                    <div class="space-y-4">
+                        <div x-show="runData.results.overall_report.ai_insights?.key_findings">
+                            <h4 class="font-medium text-blue-300">Key Findings</h4>
+                            <template x-for="finding in runData.results.overall_report.ai_insights.key_findings">
+                                <div class="ml-4 text-gray-300" x-text="'• ' + finding"></div>
+                            </template>
+                        </div>
+                        <div x-show="runData.results.overall_report.ai_insights?.improvement_suggestions">
+                            <h4 class="font-medium text-blue-300">Improvement Suggestions</h4>
+                            <template x-for="suggestion in runData.results.overall_report.ai_insights.improvement_suggestions">
+                                <div class="ml-4 text-gray-300" x-text="'• ' + suggestion"></div>
+                            </template>
+                        </div>
+                        <div x-show="runData.results.overall_report.ai_insights?.documentation_quality_score">
+                            <h4 class="font-medium text-blue-300">Documentation Quality Score</h4>
+                            <div class="ml-4 text-xl font-bold text-yellow-400" x-text="runData.results.overall_report.ai_insights.documentation_quality_score + '/10'"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Common Issues -->
+                <div x-show="runData.results.overall_report?.common_issues?.length > 0">
+                    <h3 class="text-lg font-bold mb-3">⚠️ Common Issues</h3>
+                    <div class="space-y-2">
+                        <template x-for="issue in runData.results.overall_report.common_issues">
+                            <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-3">
+                                <div class="font-medium text-yellow-300" x-text="issue.issue_type"></div>
+                                <div class="text-gray-300" x-text="issue.description"></div>
+                                <div class="text-sm text-gray-400 mt-1" x-text="'Affected pages: ' + issue.affected_pages.join(', ')"></div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Page-Level Reports -->
+    <div x-show="Object.keys(runData.results?.page_reports || {}).length > 0" class="mb-8">
+        <h2 class="text-2xl font-bold mb-6">📄 Page-Level Reports</h2>
+        
+        <!-- Filter and Search -->
+        <div class="mb-4 flex gap-4">
+            <input 
+                x-model="pageFilter"
+                type="text" 
+                placeholder="Search pages..."
+                class="flex-1 px-4 py-2 bg-gray-800/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+            <select 
+                x-model="statusFilter"
+                class="px-4 py-2 bg-gray-800/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+                <option value="">All Status</option>
+                <option value="passed">Passed</option>
+                <option value="failed">Failed</option>
+                <option value="mixed">Mixed</option>
+            </select>
+        </div>
+
+        <!-- Page Reports Grid -->
+        <div class="space-y-4">
+            <template x-for="[url, report] in filteredPageReports" :key="url">
+                <div class="glass rounded-xl overflow-hidden">
+                    <!-- Page Header -->
+                    <div 
+                        @click="togglePageExpansion(url)"
+                        class="p-4 cursor-pointer hover:bg-white/5 transition-colors border-b border-white/10"
+                    >
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1">
+                                <div class="font-medium text-blue-300" x-text="url"></div>
+                                <div class="text-sm text-gray-400 mt-1">
+                                    <span x-text="report.passed_tests + ' passed'"></span> • 
+                                    <span x-text="report.failed_tests + ' failed'"></span> • 
+                                    <span x-text="report.success_rate + '% success'"></span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span 
+                                    :class="{
+                                        'bg-green-500': report.success_rate >= 80,
+                                        'bg-yellow-500': report.success_rate >= 60 && report.success_rate < 80,
+                                        'bg-red-500': report.success_rate < 60
+                                    }"
+                                    class="px-3 py-1 rounded-full text-xs font-medium"
+                                    x-text="report.success_rate + '%'"
+                                ></span>
+                                <span 
+                                    :class="expandedPages.includes(url) ? 'rotate-90' : ''"
+                                    class="transition-transform text-gray-400"
+                                >▶</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Expanded Content -->
+                    <div x-show="expandedPages.includes(url)" x-collapse class="p-6 space-y-6">
+                        
+                        <!-- AI Insights for Page -->
+                        <div x-show="report.ai_insights" class="bg-gradient-to-r from-purple-900/20 to-blue-900/20 rounded-lg p-4">
+                            <h4 class="font-bold text-purple-300 mb-3">🧠 AI Analysis</h4>
+                            <div class="space-y-3">
+                                <div x-show="report.ai_insights?.key_issues?.length > 0">
+                                    <div class="text-sm font-medium text-blue-300">Key Issues:</div>
+                                    <template x-for="issue in report.ai_insights.key_issues">
+                                        <div class="ml-3 text-sm text-gray-300" x-text="'• ' + issue"></div>
+                                    </template>
+                                </div>
+                                <div x-show="report.ai_insights?.suggestions?.length > 0">
+                                    <div class="text-sm font-medium text-blue-300">Suggestions:</div>
+                                    <template x-for="suggestion in report.ai_insights.suggestions">
+                                        <div class="ml-3 text-sm text-gray-300" x-text="'• ' + suggestion"></div>
+                                    </template>
+                                </div>
+                                <div x-show="report.ai_insights?.missing_examples?.length > 0">
+                                    <div class="text-sm font-medium text-blue-300">Missing Examples:</div>
+                                    <template x-for="example in report.ai_insights.missing_examples">
+                                        <div class="ml-3 text-sm text-gray-300" x-text="'• ' + example"></div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Test Results -->
+                        <div x-show="report.test_results?.length > 0">
+                            <h4 class="font-bold mb-3">Test Results</h4>
+                            <div class="space-y-2 max-h-96 overflow-y-auto">
+                                <template x-for="test in report.test_results">
+                                    <div 
+                                        :class="{
+                                            'border-green-500 bg-green-900/20': test.status === 'passed',
+                                            'border-red-500 bg-red-900/20': test.status === 'failed',
+                                            'border-yellow-500 bg-yellow-900/20': test.status === 'error'
+                                        }"
+                                        class="border-l-4 p-3 bg-gray-800/30 rounded"
+                                    >
+                                        <div class="flex items-center justify-between mb-2">
+                                            <div class="font-medium" x-text="test.test_case_id"></div>
+                                            <span 
+                                                :class="{
+                                                    'bg-green-500': test.status === 'passed',
+                                                    'bg-red-500': test.status === 'failed',
+                                                    'bg-yellow-500': test.status === 'error'
+                                                }"
+                                                class="px-2 py-1 rounded text-xs"
+                                                x-text="test.status"
+                                            ></span>
+                                        </div>
+                                        <div x-show="test.error_message" class="text-sm text-red-300 mb-2" x-text="test.error_message"></div>
+                                        <div x-show="test.execution_time" class="text-xs text-gray-400" x-text="'Execution time: ' + test.execution_time + 's'"></div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Raw Data -->
+                        <div>
+                            <button 
+                                @click="toggleRawData(url)"
+                                class="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                            >
+                                <span x-show="!showRawData.includes(url)">Show Raw Data</span>
+                                <span x-show="showRawData.includes(url)">Hide Raw Data</span>
+                            </button>
+                            <div x-show="showRawData.includes(url)" class="mt-3">
+                                <pre class="code-block rounded-lg p-4 text-xs overflow-x-auto" x-text="JSON.stringify(report, null, 2)"></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Pipeline State (Raw Data) -->
+    <div x-show="showFullState" class="mb-8">
+        <div class="glass rounded-xl p-6">
+            <h2 class="text-2xl font-bold mb-4">🔧 Full Pipeline State</h2>
+            <pre class="code-block rounded-lg p-4 text-xs overflow-x-auto max-h-96" x-text="JSON.stringify(runData, null, 2)"></pre>
+        </div>
+    </div>
+
+    <!-- Debug Controls -->
+    <div class="text-center">
+        <button 
+            @click="showFullState = !showFullState"
+            class="text-sm px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
+        >
+            <span x-show="!showFullState">Show Full State</span>
+            <span x-show="showFullState">Hide Full State</span>
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Data from server -->
+<script type="application/json" id="run-data">{{ run_data | tojson | safe }}</script>
+
+<script>
+function resultsPage(runId) {
+    return {
+        runId: runId,
+        runData: JSON.parse(document.getElementById('run-data').textContent),
+        pageFilter: '',
+        statusFilter: '',
+        expandedPages: [],
+        showRawData: [],
+        showFullState: false,
+        
+        init() {
+            // Start auto-refresh if pipeline is running
+            if (this.runData.status === 'running' || this.runData.status === 'starting') {
+                this.startAutoRefresh();
+            }
+        },
+        
+        get filteredPageReports() {
+            const reports = Object.entries(this.runData.results?.page_reports || {});
+            return reports.filter(([url, report]) => {
+                // Text filter
+                if (this.pageFilter && !url.toLowerCase().includes(this.pageFilter.toLowerCase())) {
+                    return false;
+                }
+                
+                // Status filter
+                if (this.statusFilter) {
+                    if (this.statusFilter === 'passed' && report.success_rate < 100) return false;
+                    if (this.statusFilter === 'failed' && report.success_rate > 0) return false;
+                    if (this.statusFilter === 'mixed' && (report.success_rate === 0 || report.success_rate === 100)) return false;
+                }
+                
+                return true;
+            });
+        },
+        
+        formatDate(dateString) {
+            return new Date(dateString).toLocaleString();
+        },
+        
+        formatDuration() {
+            if (!this.runData.start_time || !this.runData.end_time) return '';
+            const start = new Date(this.runData.start_time);
+            const end = new Date(this.runData.end_time);
+            const diff = Math.floor((end - start) / 1000);
+            return formatDuration(diff);
+        },
+        
+        togglePageExpansion(url) {
+            if (this.expandedPages.includes(url)) {
+                this.expandedPages = this.expandedPages.filter(p => p !== url);
+            } else {
+                this.expandedPages.push(url);
+            }
+        },
+        
+        toggleRawData(url) {
+            if (this.showRawData.includes(url)) {
+                this.showRawData = this.showRawData.filter(p => p !== url);
+            } else {
+                this.showRawData.push(url);
+            }
+        },
+        
+        async refreshData() {
+            try {
+                const response = await fetch(`/status/${this.runId}`);
+                if (response.ok) {
+                    this.runData = await response.json();
+                    showToast('Data refreshed', 'success');
+                    
+                    // Stop auto-refresh if completed
+                    if (this.runData.status === 'completed' || this.runData.status === 'failed') {
+                        clearInterval(this.refreshInterval);
+                    }
+                }
+            } catch (error) {
+                showToast('Failed to refresh data', 'error');
+            }
+        },
+        
+        startAutoRefresh() {
+            this.refreshInterval = setInterval(() => {
+                this.refreshData();
+            }, 5000); // Refresh every 5 seconds
+        }
+    };
+}
+</script>
+{% endblock %} 

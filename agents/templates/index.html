@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block title %}Configure Testing Pipeline{% endblock %}
+
+{% block content %}
+<div class="fade-in" x-data="pipelineForm()">
+    
+    <!-- Header -->
+    <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">
+            Developer Tool Testing Pipeline
+        </h1>
+        <p class="text-xl text-gray-300 max-w-3xl mx-auto">
+            Automatically crawl, analyze, test, and generate comprehensive reports for any developer tool documentation
+        </p>
+    </div>
+
+    <!-- Configuration Form -->
+    <div class="max-w-4xl mx-auto">
+        <form @submit.prevent="startPipeline()" class="glass rounded-xl p-8 space-y-8">
+            
+            <!-- Basic Configuration -->
+            <div class="grid md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Tool Name</label>
+                    <input 
+                        x-model="config.tool_name"
+                        type="text" 
+                        placeholder="e.g. OpenWeatherMap, Stripe API"
+                        class="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        required
+                    >
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">Base URL</label>
+                    <input 
+                        x-model="config.base_url"
+                        type="url" 
+                        placeholder="https://api.example.com/docs"
+                        class="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        required
+                    >
+                </div>
+            </div>
+
+            <!-- API Keys Section -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-3">API Keys & Context</label>
+                <div class="space-y-3">
+                    <template x-for="(item, index) in apiKeyPairs" :key="index">
+                        <div class="flex gap-3">
+                            <input 
+                                x-model="item.key"
+                                type="text" 
+                                placeholder="KEY_NAME"
+                                class="flex-1 px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                            >
+                            <input 
+                                x-model="item.value"
+                                type="text" 
+                                placeholder="api_key_value_or_context"
+                                class="flex-2 px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                            >
+                            <button 
+                                type="button"
+                                @click="removeApiKeyPair(index)"
+                                class="px-3 py-3 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </template>
+                    
+                    <button 
+                        type="button"
+                        @click="addApiKeyPair()"
+                        class="w-full px-4 py-3 border-2 border-dashed border-gray-600 hover:border-blue-500 rounded-lg text-gray-400 hover:text-blue-400 transition-all"
+                    >
+                        + Add API Key / Context
+                    </button>
+                </div>
+                <p class="text-sm text-gray-400 mt-2">
+                    Add API keys for testing or context variables (e.g., OPENAI_API_KEY: sk-..., USER_ID: test123)
+                </p>
+            </div>
+
+            <!-- Advanced Options -->
+            <div>
+                <button 
+                    type="button"
+                    @click="showAdvanced = !showAdvanced"
+                    class="flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors mb-4"
+                >
+                    <span :class="showAdvanced ? 'rotate-90' : ''" class="transition-transform">▶</span>
+                    Advanced Options
+                </button>
+                
+                <div x-show="showAdvanced" x-collapse class="space-y-6">
+                    
+                    <!-- Crawling Options -->
+                    <div class="grid md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Max Pages</label>
+                            <input 
+                                x-model.number="config.max_pages"
+                                type="number" 
+                                min="1" 
+                                max="100"
+                                class="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                            >
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Max Depth</label>
+                            <input 
+                                x-model.number="config.max_depth"
+                                type="number" 
+                                min="1" 
+                                max="5"
+                                class="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                            >
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Workers</label>
+                            <input 
+                                x-model.number="config.max_workers"
+                                type="number" 
+                                min="1" 
+                                max="16"
+                                class="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                            >
+                        </div>
+                    </div>
+
+                    <!-- Keywords -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">Keywords (comma-separated)</label>
+                        <input 
+                            x-model="keywordsString"
+                            type="text" 
+                            placeholder="api, documentation, guide, tutorial"
+                            class="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        >
+                    </div>
+
+                    <!-- URLs to Exclude -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-2">URLs to Exclude (one per line)</label>
+                        <textarea 
+                            x-model="excludeUrlsString"
+                            rows="3"
+                            placeholder="https://example.com/login&#10;https://example.com/admin"
+                            class="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        ></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="flex justify-center">
+                <button 
+                    type="submit"
+                    :disabled="isRunning"
+                    class="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-600 disabled:to-gray-600 rounded-lg font-semibold text-lg transition-all transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed"
+                    :class="isRunning ? 'pulse-slow' : ''"
+                >
+                    <span x-show="!isRunning">🚀 Start Testing Pipeline</span>
+                    <span x-show="isRunning">⏳ Running Pipeline...</span>
+                </button>
+            </div>
+        </form>
+
+        <!-- Recent Runs -->
+        <div x-show="recentRuns.length > 0" class="mt-8">
+            <h2 class="text-2xl font-bold mb-4">Recent Pipeline Runs</h2>
+            <div class="glass rounded-xl p-6">
+                <div class="space-y-3">
+                    <template x-for="run in recentRuns" :key="run.id">
+                        <div class="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg">
+                            <div>
+                                <div class="font-medium" x-text="run.config.tool_name"></div>
+                                <div class="text-sm text-gray-400" x-text="new Date(run.start_time).toLocaleString()"></div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span 
+                                    :class="{
+                                        'bg-green-500': run.status === 'completed',
+                                        'bg-red-500': run.status === 'failed',
+                                        'bg-blue-500': run.status === 'running',
+                                        'bg-yellow-500': run.status === 'starting'
+                                    }"
+                                    class="px-3 py-1 rounded-full text-xs font-medium"
+                                    x-text="run.status"
+                                ></span>
+                                <a 
+                                    :href="`/results/${run.id}`"
+                                    class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-sm transition-colors"
+                                >
+                                    View Results
+                                </a>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function pipelineForm() {
+    return {
+        config: {
+            tool_name: 'OpenWeatherMap',
+            base_url: 'https://openweathermap.org/api',
+            max_pages: 20,
+            max_depth: 3,
+            max_workers: 8
+        },
+        apiKeyPairs: [
+            { key: 'OPEN_WEATHER_API_KEY', value: '7a4834a9d4b666e30261978ec5950ab6' }
+        ],
+        keywordsString: 'api, documentation, guide',
+        excludeUrlsString: 'https://openweathermap.org/api',
+        showAdvanced: false,
+        isRunning: false,
+        recentRuns: [],
+        
+        init() {
+            this.loadRecentRuns();
+        },
+        
+        addApiKeyPair() {
+            this.apiKeyPairs.push({ key: '', value: '' });
+        },
+        
+        removeApiKeyPair(index) {
+            this.apiKeyPairs.splice(index, 1);
+        },
+        
+        async startPipeline() {
+            this.isRunning = true;
+            
+            try {
+                // Convert API key pairs to object
+                const apiKeys = {};
+                this.apiKeyPairs.forEach(pair => {
+                    if (pair.key && pair.value) {
+                        apiKeys[pair.key] = pair.value;
+                    }
+                });
+                
+                // Prepare request data
+                const requestData = {
+                    ...this.config,
+                    api_keys: apiKeys,
+                    keywords: this.keywordsString.split(',').map(k => k.trim()).filter(k => k),
+                    urls_to_exclude: this.excludeUrlsString.split('\n').map(u => u.trim()).filter(u => u)
+                };
+                
+                const response = await fetch('/start-pipeline', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showToast('Pipeline started successfully!', 'success');
+                    
+                    // Redirect to results page
+                    window.location.href = `/results/${result.run_id}`;
+                } else {
+                    throw new Error(result.detail || 'Failed to start pipeline');
+                }
+                
+            } catch (error) {
+                showToast(`Error: ${error.message}`, 'error');
+            } finally {
+                this.isRunning = false;
+            }
+        },
+        
+        async loadRecentRuns() {
+            try {
+                const response = await fetch('/api/runs');
+                const data = await response.json();
+                this.recentRuns = data.runs.slice(-5).reverse(); // Last 5 runs, newest first
+            } catch (error) {
+                console.error('Failed to load recent runs:', error);
+            }
+        }
+    };
+}
+</script>
+{% endblock %} 
