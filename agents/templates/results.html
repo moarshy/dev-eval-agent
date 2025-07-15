@@ -207,112 +207,195 @@
         </div>
 
         <!-- Page Reports Grid -->
-        <div class="space-y-4">
+        <div class="space-y-6">
             <template x-for="[url, report] in filteredPageReports" :key="url">
-                <div class="glass rounded-xl overflow-hidden">
-                    <!-- Page Header -->
+                <div class="glass rounded-xl overflow-hidden border border-white/10">
+                    <!-- Page Header with Enhanced Info -->
                     <div 
                         @click="togglePageExpansion(url)"
-                        class="p-4 cursor-pointer hover:bg-white/5 transition-colors border-b border-white/10"
+                        class="p-6 cursor-pointer hover:bg-white/5 transition-colors border-b border-white/10"
                     >
-                        <div class="flex items-center justify-between">
-                            <div class="flex-1">
-                                <div class="font-medium text-blue-300" x-text="url"></div>
-                                <div class="text-sm text-gray-400 mt-1">
-                                    <span x-text="report.passed_tests + ' passed'"></span> • 
-                                    <span x-text="report.failed_tests + ' failed'"></span> • 
-                                    <span x-text="report.success_rate + '% success'"></span>
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <div class="font-medium text-blue-300 truncate text-lg" x-text="url"></div>
+                                    <div class="flex-shrink-0">
+                                        <span 
+                                            :class="{
+                                                'bg-green-500 text-white': report.success_rate >= 80,
+                                                'bg-yellow-500 text-black': report.success_rate >= 60 && report.success_rate < 80,
+                                                'bg-red-500 text-white': report.success_rate < 60
+                                            }"
+                                            class="px-3 py-1 rounded-full text-sm font-bold"
+                                            x-text="(report.success_rate || 0).toFixed(1) + '%'"
+                                        ></span>
+                                    </div>
                                 </div>
+                                
+                                <!-- Statistics Summary -->
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                                    <div class="bg-gray-800/30 rounded-lg p-3">
+                                        <div class="text-xs text-gray-400">Total Tests</div>
+                                        <div class="text-lg font-bold text-white" x-text="report.total_tests || 0"></div>
+                                    </div>
+                                    <div class="bg-gray-800/30 rounded-lg p-3">
+                                        <div class="text-xs text-gray-400">Passed</div>
+                                        <div class="text-lg font-bold text-green-400" x-text="report.passed_tests || 0"></div>
+                                    </div>
+                                    <div class="bg-gray-800/30 rounded-lg p-3">
+                                        <div class="text-xs text-gray-400">Failed</div>
+                                        <div class="text-lg font-bold text-red-400" x-text="(report.minor_failure_tests || 0) + (report.major_failure_tests || 0)"></div>
+                                    </div>
+                                    <div class="bg-gray-800/30 rounded-lg p-3">
+                                        <div class="text-xs text-gray-400">Execution Time</div>
+                                        <div class="text-lg font-bold text-purple-400" x-text="(report.total_execution_time || 0).toFixed(2) + 's'"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Progress Bar -->
+                                <div class="mb-3">
+                                    <div class="flex justify-between text-xs text-gray-400 mb-1">
+                                        <span>Test Results</span>
+                                        <span x-text="(report.passed_tests || 0) + '/' + (report.total_tests || 0) + ' passed'"></span>
+                                    </div>
+                                    <div class="w-full bg-gray-700 rounded-full h-2">
+                                        <div 
+                                            class="bg-gradient-to-r from-green-500 to-green-400 h-2 rounded-full transition-all duration-500"
+                                            :style="`width: ${report.success_rate || 0}%`"
+                                        ></div>
+                                    </div>
+                                </div>
+
+                                <!-- Quick AI Summary -->
+                                <div x-show="report.page_summary" class="text-sm text-gray-300 line-clamp-2" x-text="report.page_summary"></div>
                             </div>
-                            <div class="flex items-center gap-3">
-                                <span 
-                                    :class="{
-                                        'bg-green-500': report.success_rate >= 80,
-                                        'bg-yellow-500': report.success_rate >= 60 && report.success_rate < 80,
-                                        'bg-red-500': report.success_rate < 60
-                                    }"
-                                    class="px-3 py-1 rounded-full text-xs font-medium"
-                                    x-text="report.success_rate + '%'"
-                                ></span>
+                            
+                            <div class="flex-shrink-0 ml-4">
                                 <span 
                                     :class="expandedPages.includes(url) ? 'rotate-90' : ''"
-                                    class="transition-transform text-gray-400"
+                                    class="transition-transform text-gray-400 text-xl"
                                 >▶</span>
                             </div>
                         </div>
                     </div>
 
                     <!-- Expanded Content -->
-                    <div x-show="expandedPages.includes(url)" x-collapse class="p-6 space-y-6">
+                    <div x-show="expandedPages.includes(url)" x-collapse class="divide-y divide-white/10">
                         
-                        <!-- AI Insights for Page -->
-                        <div x-show="report.ai_insights" class="bg-gradient-to-r from-purple-900/20 to-blue-900/20 rounded-lg p-4">
-                            <h4 class="font-bold text-purple-300 mb-3">🧠 AI Analysis</h4>
-                            <div class="space-y-3">
-                                <div x-show="report.ai_insights?.key_issues?.length > 0">
-                                    <div class="text-sm font-medium text-blue-300">Key Issues:</div>
-                                    <template x-for="issue in report.ai_insights.key_issues">
-                                        <div class="ml-3 text-sm text-gray-300" x-text="'• ' + issue"></div>
-                                    </template>
-                                </div>
-                                <div x-show="report.ai_insights?.suggestions?.length > 0">
-                                    <div class="text-sm font-medium text-blue-300">Suggestions:</div>
-                                    <template x-for="suggestion in report.ai_insights.suggestions">
-                                        <div class="ml-3 text-sm text-gray-300" x-text="'• ' + suggestion"></div>
-                                    </template>
-                                </div>
-                                <div x-show="report.ai_insights?.missing_examples?.length > 0">
-                                    <div class="text-sm font-medium text-blue-300">Missing Examples:</div>
-                                    <template x-for="example in report.ai_insights.missing_examples">
-                                        <div class="ml-3 text-sm text-gray-300" x-text="'• ' + example"></div>
-                                    </template>
-                                </div>
+                        <!-- AI Analysis Section -->
+                        <div class="p-6">
+                            <h4 class="text-xl font-bold mb-4 text-purple-300">🧠 AI Analysis & Insights</h4>
+                            
+                            <!-- Page Summary -->
+                            <div x-show="report.page_summary" class="mb-6">
+                                <h5 class="font-semibold text-blue-300 mb-2">📄 Page Summary</h5>
+                                <div class="bg-blue-900/20 rounded-lg p-4 text-gray-300 whitespace-pre-wrap" x-text="report.page_summary"></div>
                             </div>
-                        </div>
 
-                        <!-- Test Results -->
-                        <div x-show="report.test_results?.length > 0">
-                            <h4 class="font-bold mb-3">Test Results</h4>
-                            <div class="space-y-2 max-h-96 overflow-y-auto">
-                                <template x-for="test in report.test_results">
-                                    <div 
-                                        :class="{
-                                            'border-green-500 bg-green-900/20': test.status === 'passed',
-                                            'border-red-500 bg-red-900/20': test.status === 'failed',
-                                            'border-yellow-500 bg-yellow-900/20': test.status === 'error'
-                                        }"
-                                        class="border-l-4 p-3 bg-gray-800/30 rounded"
-                                    >
-                                        <div class="flex items-center justify-between mb-2">
-                                            <div class="font-medium" x-text="test.test_case_id"></div>
-                                            <span 
-                                                :class="{
-                                                    'bg-green-500': test.status === 'passed',
-                                                    'bg-red-500': test.status === 'failed',
-                                                    'bg-yellow-500': test.status === 'error'
-                                                }"
-                                                class="px-2 py-1 rounded text-xs"
-                                                x-text="test.status"
-                                            ></span>
-                                        </div>
-                                        <div x-show="test.error_message" class="text-sm text-red-300 mb-2" x-text="test.error_message"></div>
-                                        <div x-show="test.execution_time" class="text-xs text-gray-400" x-text="'Execution time: ' + test.execution_time + 's'"></div>
+                            <!-- Documentation Quality -->
+                            <div x-show="report.documentation_quality" class="mb-6">
+                                <h5 class="font-semibold text-green-300 mb-2">📚 Documentation Quality Assessment</h5>
+                                <div class="bg-green-900/20 rounded-lg p-4 text-gray-300 whitespace-pre-wrap" x-text="report.documentation_quality"></div>
+                            </div>
+
+                            <!-- Issues & Improvements Grid -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <!-- Main Issues -->
+                                <div x-show="report.main_issues?.length > 0">
+                                    <h5 class="font-semibold text-red-300 mb-3">🚨 Main Issues</h5>
+                                    <div class="bg-red-900/20 rounded-lg p-4 space-y-2">
+                                        <template x-for="issue in report.main_issues">
+                                            <div class="flex items-start gap-2">
+                                                <span class="text-red-400 text-sm">•</span>
+                                                <span class="text-gray-300 text-sm" x-text="issue"></span>
+                                            </div>
+                                        </template>
                                     </div>
-                                </template>
+                                </div>
+
+                                <!-- Success Factors -->
+                                <div x-show="report.success_factors?.length > 0">
+                                    <h5 class="font-semibold text-green-300 mb-3">✅ Success Factors</h5>
+                                    <div class="bg-green-900/20 rounded-lg p-4 space-y-2">
+                                        <template x-for="factor in report.success_factors">
+                                            <div class="flex items-start gap-2">
+                                                <span class="text-green-400 text-sm">•</span>
+                                                <span class="text-gray-300 text-sm" x-text="factor"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+
+                                <!-- Improvement Suggestions -->
+                                <div x-show="report.improvement_suggestions?.length > 0">
+                                    <h5 class="font-semibold text-orange-300 mb-3">💡 Improvement Suggestions</h5>
+                                    <div class="bg-orange-900/20 rounded-lg p-4 space-y-2">
+                                        <template x-for="suggestion in report.improvement_suggestions">
+                                            <div class="flex items-start gap-2">
+                                                <span class="text-orange-400 text-sm">•</span>
+                                                <span class="text-gray-300 text-sm" x-text="suggestion"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+
+                                <!-- Missing Examples -->
+                                <div x-show="report.missing_examples?.length > 0">
+                                    <h5 class="font-semibold text-purple-300 mb-3">📝 Missing Examples</h5>
+                                    <div class="bg-purple-900/20 rounded-lg p-4 space-y-2">
+                                        <template x-for="example in report.missing_examples">
+                                            <div class="flex items-start gap-2">
+                                                <span class="text-purple-400 text-sm">•</span>
+                                                <span class="text-gray-300 text-sm" x-text="example"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Priority Issues -->
+                            <div x-show="report.priority_issues?.length > 0" class="mt-6">
+                                <h5 class="font-semibold text-yellow-300 mb-3">⚠️ Priority Issues</h5>
+                                <div class="bg-yellow-900/20 rounded-lg p-4 space-y-2">
+                                    <template x-for="issue in report.priority_issues">
+                                        <div class="flex items-start gap-2">
+                                            <span class="text-yellow-400 text-sm">⚠</span>
+                                            <span class="text-gray-300 text-sm" x-text="issue"></span>
+                                        </div>
+                                    </template>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Raw Data -->
-                        <div>
+                        <!-- Test Results Section -->
+                        <div x-show="report.total_tests > 0" class="p-6">
+                            <h4 class="text-xl font-bold mb-4 text-blue-300">🧪 Detailed Test Results</h4>
+                            
+                            <!-- Test Categories Analysis -->
+                            <div x-show="report.category_analysis && Object.keys(report.category_analysis).length > 0" class="mb-6">
+                                <h5 class="font-semibold text-cyan-300 mb-3">📊 Test Categories Analysis</h5>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <template x-for="[category, analysis] in Object.entries(report.category_analysis || {})">
+                                        <div class="bg-cyan-900/20 rounded-lg p-4">
+                                            <div class="font-medium text-cyan-300 capitalize mb-2" x-text="category.replace('_', ' ')"></div>
+                                            <div class="text-sm text-gray-300" x-text="analysis"></div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Raw Data Toggle -->
+                        <div class="p-6 bg-gray-800/20">
                             <button 
                                 @click="toggleRawData(url)"
-                                class="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                                class="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
                             >
-                                <span x-show="!showRawData.includes(url)">Show Raw Data</span>
-                                <span x-show="showRawData.includes(url)">Hide Raw Data</span>
+                                <span x-show="!showRawData.includes(url)">📄 Show Raw Report Data</span>
+                                <span x-show="showRawData.includes(url)">🗂️ Hide Raw Report Data</span>
                             </button>
-                            <div x-show="showRawData.includes(url)" class="mt-3">
-                                <pre class="code-block rounded-lg p-4 text-xs overflow-x-auto" x-text="JSON.stringify(report, null, 2)"></pre>
+                            <div x-show="showRawData.includes(url)" class="mt-4">
+                                <pre class="code-block rounded-lg p-4 text-xs overflow-x-auto max-h-96" x-text="JSON.stringify(report, null, 2)"></pre>
                             </div>
                         </div>
                     </div>

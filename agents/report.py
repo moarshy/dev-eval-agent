@@ -205,23 +205,36 @@ class IntelligentReporter:
                 calculated_stats=stats_json
             )
             
-            return PageReport(
-                page_url=page_plan.page_url,
-                total_tests=stats["total_tests"],
-                passed_tests=stats["passed_tests"],
-                minor_failure_tests=stats["minor_failure_tests"],
-                major_failure_tests=stats["major_failure_tests"],
-                success_rate=stats["success_rate"],
-                total_execution_time=stats["total_execution_time"],
-                page_summary=result.page_summary,
-                documentation_quality=result.documentation_quality,
-                main_issues=result.main_issues,
-                success_factors=result.success_factors,
-                improvement_suggestions=result.improvement_suggestions,
-                missing_examples=result.missing_examples,
-                category_analysis=result.category_analysis,
-                priority_issues=result.priority_issues
-            )
+            # Create PageReport with null-safe handling for DSPy outputs
+            report_data = {
+                "page_url": page_plan.page_url,
+                "total_tests": stats["total_tests"],
+                "passed_tests": stats["passed_tests"],
+                "minor_failure_tests": stats["minor_failure_tests"],
+                "major_failure_tests": stats["major_failure_tests"],
+                "success_rate": stats["success_rate"],
+                "total_execution_time": stats["total_execution_time"]
+            }
+            
+            # Only add non-None DSPy results to override defaults
+            if result.page_summary is not None:
+                report_data["page_summary"] = result.page_summary
+            if result.documentation_quality is not None:
+                report_data["documentation_quality"] = result.documentation_quality
+            if result.main_issues is not None:
+                report_data["main_issues"] = result.main_issues
+            if result.success_factors is not None:
+                report_data["success_factors"] = result.success_factors
+            if result.improvement_suggestions is not None:
+                report_data["improvement_suggestions"] = result.improvement_suggestions
+            if result.missing_examples is not None:
+                report_data["missing_examples"] = result.missing_examples
+            if result.category_analysis is not None:
+                report_data["category_analysis"] = result.category_analysis
+            if result.priority_issues is not None:
+                report_data["priority_issues"] = result.priority_issues
+            
+            return PageReport(**report_data)
             
         except Exception as e:
             print(f"Error generating AI report for page {page_plan.page_url}: {e}")
@@ -284,23 +297,35 @@ class IntelligentReporter:
                 overall_stats=stats_json
             )
             
-            return OverallReport(
-                tool_name=self.tool_name,
-                generation_time=self.generation_time,
-                total_pages=total_pages,
-                total_tests=total_tests,
-                overall_success_rate=overall_success_rate,
-                total_execution_time=total_time,
-                executive_summary=result.executive_summary,
-                overall_documentation_assessment=result.overall_documentation_assessment,
-                systemic_issues=result.systemic_issues,
-                strength_areas=result.strength_areas,
-                strategic_recommendations=result.strategic_recommendations,
-                best_performing_pages=[p.page_url for p in best_pages if p.success_rate >= 80],
-                most_problematic_pages=[p.page_url for p in worst_pages if p.success_rate < 50],
-                immediate_actions=result.immediate_actions,
-                medium_term_improvements=result.medium_term_improvements
-            )
+            # Create OverallReport with null-safe handling for DSPy outputs
+            overall_data = {
+                "tool_name": self.tool_name,
+                "generation_time": self.generation_time,
+                "total_pages": total_pages,
+                "total_tests": total_tests,
+                "overall_success_rate": overall_success_rate,
+                "total_execution_time": total_time,
+                "best_performing_pages": [p.page_url for p in best_pages if p.success_rate >= 80],
+                "most_problematic_pages": [p.page_url for p in worst_pages if p.success_rate < 50]
+            }
+            
+            # Only add non-None DSPy results to override defaults
+            if result.executive_summary is not None:
+                overall_data["executive_summary"] = result.executive_summary
+            if result.overall_documentation_assessment is not None:
+                overall_data["overall_documentation_assessment"] = result.overall_documentation_assessment
+            if result.systemic_issues is not None:
+                overall_data["systemic_issues"] = result.systemic_issues
+            if result.strength_areas is not None:
+                overall_data["strength_areas"] = result.strength_areas
+            if result.strategic_recommendations is not None:
+                overall_data["strategic_recommendations"] = result.strategic_recommendations
+            if result.immediate_actions is not None:
+                overall_data["immediate_actions"] = result.immediate_actions
+            if result.medium_term_improvements is not None:
+                overall_data["medium_term_improvements"] = result.medium_term_improvements
+            
+            return OverallReport(**overall_data)
             
         except Exception as e:
             print(f"Error generating overall AI report: {e}")
