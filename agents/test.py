@@ -205,6 +205,8 @@ class DeveloperToolTestingPipeline:
         
         finally:
             self.state.end_time = datetime.now()
+            # Calculate final page statistics
+            self._update_page_statistics()
             self._save_pipeline_state()
         
         return self.state
@@ -239,9 +241,13 @@ class DeveloperToolTestingPipeline:
             print(f"✅ Fetching completed in {fetch_duration:.2f}s")
             print(f"📄 Found {len(raw_content.content)} pages")
             
+            # POST-PROCESSING: Deduplicate URLs by normalizing trailing slashes
+            deduplicated_content = self._deduplicate_urls(raw_content.content)
+            print(f"🔄 After deduplication: {len(deduplicated_content)} pages")
+            
             # Process pages directly (content already has URL->content mapping)
             processed_count = 0
-            for url, content in raw_content.content.items():
+            for url, content in deduplicated_content.items():
                 if self._should_process_url(url):
                     page_progress = PageProgress(page_url=url)
                     page_progress.fetch_status = StageStatus.IN_PROGRESS
@@ -268,6 +274,65 @@ class DeveloperToolTestingPipeline:
             return False
     
 
+    
+    def _deduplicate_urls(self, content: Dict[str, str]) -> Dict[str, str]:
+        """Deduplicate URLs by removing trailing slash variants"""
+        from .doc_ingestion.crawl4ai import normalize_url
+        
+        # Track normalized URL -> original URL mapping
+        normalized_to_original = {}
+        deduplicated_content = {}
+        
+        for url, page_content in content.items():
+            normalized_url = normalize_url(url)
+            
+            if normalized_url in normalized_to_original:
+                original_url = normalized_to_original[normalized_url]
+                print(f"🔄 Deduplicating: {url} -> {normalized_url} (keeping {original_url})")
+                
+                # If the new content is longer, prefer it
+                if len(page_content) > len(deduplicated_content.get(original_url, "")):
+                    print(f"   📝 Replacing with longer content ({len(page_content)} > {len(deduplicated_content.get(original_url, ''))} chars)")
+                    deduplicated_content[original_url] = page_content
+            else:
+                # First time seeing this normalized URL
+                normalized_to_original[normalized_url] = url
+                deduplicated_content[url] = page_content
+        
+        return deduplicated_content
+    
+    def _update_page_statistics(self):
+        """Update completed_pages and failed_pages based on actual page states"""
+        completed = 0
+        failed = 0
+        
+        for page in self.state.pages.values():
+            # A page is completed if all stages that should run are completed
+            stages_to_check = [page.fetch_status]
+            
+            if not self.config.skip_analysis:
+                stages_to_check.append(page.analysis_status)
+            if not self.config.skip_test_plans:
+                stages_to_check.append(page.test_plan_status)
+            if not self.config.skip_execution:
+                stages_to_check.append(page.execution_status)
+            if not self.config.skip_reports:
+                stages_to_check.append(page.report_status)
+            
+            # Check if any stage failed
+            if StageStatus.FAILED in stages_to_check:
+                failed += 1
+            # Check if all stages that should run are completed
+            elif all(status == StageStatus.COMPLETED for status in stages_to_check):
+                completed += 1
+            # Otherwise, it's still in progress or failed
+            else:
+                failed += 1
+        
+        self.state.completed_pages = completed
+        self.state.failed_pages = failed
+        
+        print(f"📊 Final statistics: {completed} completed, {failed} failed out of {self.state.total_pages} total pages")
     
     def _should_process_url(self, url: str) -> bool:
         """Check if URL should be processed based on include/exclude rules"""
@@ -359,7 +424,7 @@ class DeveloperToolTestingPipeline:
             for url, page in self.state.pages.items():
                 if page.analysis_result:
                     # Convert analysis result to PageAnalysis
-                    from doc_ingestion.analyzer import PageAnalysis
+                    from .doc_ingestion.analyzer import PageAnalysis
                     page_analysis = PageAnalysis(**page.analysis_result)
                     tool_docs.pages[url] = page_analysis
             

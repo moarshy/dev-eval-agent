@@ -12,8 +12,8 @@ from typing import List, Dict, Optional, Tuple
 from datetime import datetime
 from pydantic import BaseModel, Field
 
-from code_execution import TestResult, TestStatus
-from test_plan import PageTestPlan, TestScenario, TestCategory, TestPriority
+from .code_execution import TestResult, TestStatus
+from .test_plan import PageTestPlan, TestScenario, TestCategory, TestPriority
 
 class PageReport(BaseModel):
     """AI-generated report for a single documentation page"""

@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from typing import List, Dict, Optional, Set
 from enum import Enum
 import concurrent.futures
-from doc_ingestion.analyzer import ToolDocumentation, PageAnalysis, ToolType, ComplexityLevel
+from .doc_ingestion.analyzer import ToolDocumentation, PageAnalysis, ToolType, ComplexityLevel
 
 # Test categories from project doc
 class TestCategory(str, Enum):

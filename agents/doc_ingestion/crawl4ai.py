@@ -4,6 +4,7 @@ from datetime import datetime
 from urllib.parse import urljoin, urlparse
 from pydantic import BaseModel, Field
 import json
+import re
 
 try:
     from crawl4ai import AsyncWebCrawler
@@ -17,6 +18,58 @@ except ImportError:
     CRAWL4AI_AVAILABLE = False
 
 from .fetcher import RawContent, ContentFetcher
+
+def normalize_url(url: str) -> str:
+    """
+    Normalize URL to avoid duplicates caused by trailing slashes, case differences, etc.
+    
+    Args:
+        url: Raw URL string
+        
+    Returns:
+        Normalized URL string
+    """
+    if not url or not isinstance(url, str):
+        return url
+    
+    try:
+        # Parse the URL
+        parsed = urlparse(url.strip())
+        
+        # Normalize domain to lowercase
+        domain = parsed.netloc.lower()
+        
+        # Normalize path: remove trailing slash (including for root paths)
+        path = parsed.path
+        if path.endswith('/'):
+            path = path.rstrip('/')
+        # Ensure we have at least an empty path (not None)
+        if not path:
+            path = ""
+        
+        # Remove common tracking parameters
+        query = parsed.query
+        if query:
+            # Remove common tracking params like utm_*, fbclid, gclid, etc.
+            query_params = []
+            for param in query.split('&'):
+                if '=' in param:
+                    key, _ = param.split('=', 1)
+                    # Keep only non-tracking parameters
+                    if not re.match(r'^(utm_|fbclid|gclid|_ga|_gl)', key.lower()):
+                        query_params.append(param)
+            query = '&'.join(query_params)
+        
+        # Reconstruct URL without fragment (anchor links)
+        normalized = f"{parsed.scheme}://{domain}{path}"
+        if query:
+            normalized += f"?{query}"
+            
+        return normalized
+        
+    except Exception:
+        # If URL parsing fails, return original
+        return url
 
 class Crawl4AIConfig(BaseModel):
     """Configuration for Crawl4AI-based fetching"""
@@ -53,11 +106,37 @@ class Crawl4AIFetcher(ContentFetcher):
         
     def fetch(self, source: str) -> RawContent:
         """Fetch markdown content from website using Crawl4AI"""
-        return asyncio.run(self._async_fetch(source))
+        import threading
+        import asyncio
+        
+        result = None
+        exception = None
+        
+        def run_async_in_thread():
+            nonlocal result, exception
+            try:
+                # Create a new event loop for this thread
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    result = loop.run_until_complete(self._async_fetch(source))
+                finally:
+                    loop.close()
+            except Exception as e:
+                exception = e
+        
+        # Always run in a separate thread to avoid event loop conflicts
+        thread = threading.Thread(target=run_async_in_thread)
+        thread.start()
+        thread.join()
+        
+        if exception:
+            raise exception
+        return result
     
     async def _async_fetch(self, source: str) -> RawContent:
         """Async implementation of fetch"""
-        base_url = source
+        base_url = normalize_url(source)  # Normalize the base URL
         content = {}
         metadata = {}
         
@@ -66,18 +145,30 @@ class Crawl4AIFetcher(ContentFetcher):
                 # Simple single-page crawling
                 result = await self._simple_crawl(crawler, base_url)
                 if result:
-                    content[base_url] = result.get("markdown", "")
-                    # For simple crawl, store metadata under the URL key
+                    normalized_url = normalize_url(base_url)
+                    content[normalized_url] = result.get("markdown", "")
+                    # For simple crawl, store metadata under the normalized URL key
                     if result.get("metadata"):
-                        metadata[base_url] = result["metadata"]
+                        metadata[normalized_url] = result["metadata"]
             else:
                 # Deep crawling
                 results = await self._deep_crawl(crawler, base_url)
+                
+                # Deduplicate results based on normalized URLs
+                seen_urls = set()
                 for result in results:
                     if result and result.get("url"):
-                        content[result["url"]] = result.get("markdown", "")
+                        normalized_url = normalize_url(result["url"])
+                        
+                        # Skip if we've already processed this normalized URL
+                        if normalized_url in seen_urls:
+                            print(f"🔄 Skipping duplicate URL: {result['url']} -> {normalized_url}")
+                            continue
+                            
+                        seen_urls.add(normalized_url)
+                        content[normalized_url] = result.get("markdown", "")
                         if result.get("metadata"):
-                            metadata[result["url"]] = result["metadata"]
+                            metadata[normalized_url] = result["metadata"]
         
         # Serialize metadata dictionaries to JSON strings to match RawContent schema
         serialized_metadata = {}
@@ -89,7 +180,7 @@ class Crawl4AIFetcher(ContentFetcher):
         
         return RawContent(
             source_type="website",
-            source_url=base_url,
+            source_url=base_url,  # Already normalized above
             content=content,
             metadata=serialized_metadata,
             fetch_timestamp=datetime.now().isoformat()
@@ -133,8 +224,8 @@ class Crawl4AIFetcher(ContentFetcher):
         
         # Create filter chain for same-domain crawling
         parsed_base = urlparse(base_url)
-        base_domain = parsed_base.netloc
-        base_path = parsed_base.path.rstrip('/')
+        base_domain = parsed_base.netloc.lower()  # Normalize domain case
+        base_path = parsed_base.path.rstrip('/')   # Remove trailing slash for pattern matching
         
         filter_chain = FilterChain([
             DomainFilter(allowed_domains=[base_domain]),

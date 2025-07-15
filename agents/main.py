@@ -16,8 +16,10 @@ import os
 import uuid
 from datetime import datetime
 from typing import Dict, Optional
+from enum import Enum
 from pydantic import BaseModel
 from pathlib import Path
+from enum import Enum
 
 # Import our pipeline
 from agents.test import DeveloperToolTestingPipeline, PipelineConfig
@@ -49,7 +51,6 @@ async def index(request: Request):
 @app.post("/start-pipeline")
 async def start_pipeline(background_tasks: BackgroundTasks, request: PipelineRequest):
     """Start a new pipeline run"""
-    
     # Generate unique run ID
     run_id = str(uuid.uuid4())
     
@@ -84,16 +85,35 @@ async def view_results(request: Request, run_id: str):
         raise HTTPException(status_code=404, detail="Pipeline run not found")
     
     run_data = pipeline_runs[run_id]
+    
+    # Convert datetime objects to strings for JSON serialization
+    serializable_data = serialize_data(run_data)
+    
     return templates.TemplateResponse("results.html", {
         "request": request,
         "run_id": run_id,
-        "run_data": run_data
+        "run_data": serializable_data
     })
 
 @app.get("/api/runs")
 async def list_runs():
     """List all pipeline runs"""
     return {"runs": list(pipeline_runs.values())}
+
+def serialize_data(obj):
+    """Recursively convert datetime objects and enums to strings for JSON serialization"""
+    if isinstance(obj, dict):
+        return {k: serialize_data(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [serialize_data(item) for item in obj]
+    elif hasattr(obj, 'model_dump'):
+        return serialize_data(obj.model_dump())
+    elif isinstance(obj, datetime):
+        return obj.isoformat()
+    elif isinstance(obj, Enum):
+        return obj.value
+    else:
+        return obj
 
 async def run_pipeline_async(run_id: str, request: PipelineRequest):
     """Run the pipeline asynchronously and update status"""
@@ -118,24 +138,26 @@ async def run_pipeline_async(run_id: str, request: PipelineRequest):
         pipeline = DeveloperToolTestingPipeline(config)
         result = pipeline.run_complete_pipeline()
         
-        # Store results
-        pipeline_runs[run_id].update({
-            "status": "completed" if result.current_stage == "completed" else "failed",
-            "end_time": datetime.now().isoformat(),
-            "results": {
-                "state": result.model_dump(),
-                "total_pages": result.total_pages,
-                "completed_pages": result.completed_pages,
-                "failed_pages": result.failed_pages,
-                "overall_report": result.overall_report.model_dump() if result.overall_report else None,
-                "page_reports": {}
-            }
-        })
+        # Store results - use our serialization function
+        results_data = {
+            "state": serialize_data(result.model_dump()),
+            "total_pages": result.total_pages,
+            "completed_pages": result.completed_pages,
+            "failed_pages": result.failed_pages,
+            "overall_report": serialize_data(result.overall_report.model_dump()) if result.overall_report else None,
+            "page_reports": {}
+        }
         
         # Extract page reports
         for url, page in result.pages.items():
             if page.page_report:
-                pipeline_runs[run_id]["results"]["page_reports"][url] = page.page_report.model_dump()
+                results_data["page_reports"][url] = serialize_data(page.page_report.model_dump())
+        
+        pipeline_runs[run_id].update({
+            "status": "completed" if result.current_stage == "completed" else "failed",
+            "end_time": datetime.now().isoformat(),
+            "results": results_data
+        })
         
     except Exception as e:
         pipeline_runs[run_id].update({
