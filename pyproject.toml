@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "devagent"
+version = "1.0.0"
+description = "AI-powered developer tool testing pipeline with web interface"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "DevAgent Team"}
+]
+keywords = ["testing", "ai", "developer-tools", "automation", "fastapi"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Software Development :: Quality Assurance",
+]
+requires-python = ">=3.11"
+dependencies = [
+    # Web interface
+    "fastapi>=0.104.1",
+    "uvicorn[standard]>=0.24.0",
+    "jinja2>=3.1.2",
+    "python-multipart>=0.0.6",
+    "python-dotenv>=1.0.0",
+    
+    # AI and analysis
+    "dspy-ai>=2.4.9",
+    "pydantic>=2.5.0",
+    
+    # Web crawling and content processing
+    "crawl4ai>=0.2.77",
+    "beautifulsoup4>=4.12.2",
+    "requests>=2.31.0",
+    
+    # Utility
+    "rich>=13.7.0",
+    "click>=8.1.7",
+]
+
+[project.scripts]
+devagent-web = "agents.main:main"
+devagent-cli = "agents.test:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agents*"]
+
+[tool.setuptools.package-data]
+agents = ["templates/*", "templates/**/*"]
