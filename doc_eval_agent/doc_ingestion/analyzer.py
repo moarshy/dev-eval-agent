@@ -4,8 +4,13 @@ from typing import List, Dict, Optional, Literal, Union
 from enum import Enum
 import json
 import re
+import logging
 import concurrent.futures
 from .fetcher import RawContent
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Default agent instructions
 DEFAULT_AGENT_INSTRUCTIONS = """
@@ -233,8 +238,8 @@ class DocumentProcessor:
         
         if not content.strip():  # Skip empty pages
             return None
-            
-        print(f"Processing page: {url}")
+        logger.info(f"Processing page: {url}")
+        logger.info(f"Content: {content[:100]}")
         
         # Step 1: Extract core information (overview + concepts)
         core_result = self.core_extractor(

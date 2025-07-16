@@ -91,16 +91,16 @@ FOCUS ON PRACTICAL TESTING:
 5. Validate that documentation matches actual behavior
 
 TEST CATEGORIES:
-- AUTHENTICATION: API keys, OAuth, tokens, credentials management
-- BASIC_USAGE: Simple operations, core functionality, getting started
-- CORE_WORKFLOWS: Complex multi-step processes, real-world usage patterns
-- ERROR_HANDLING: Invalid inputs, rate limits, failures, recovery
+- authentication: API keys, OAuth, tokens, credentials management
+- basic_usage: Simple operations, core functionality, getting started
+- core_workflows: Complex multi-step processes, real-world usage patterns
+- error_handling: Invalid inputs, rate limits, failures, recovery
 
 PRIORITIZATION:
-- CRITICAL: Must work for tool to be usable (auth, basic operations)
-- HIGH: Important functionality users expect (core workflows)
-- MEDIUM: Nice-to-have features (advanced options)
-- LOW: Edge cases or rarely used features
+- critical: Must work for tool to be usable (auth, basic operations)
+- high: Important functionality users expect (core workflows)
+- medium: Nice-to-have features (advanced options)
+- low: Edge cases or rarely used features
 
 Create tests that are:
 - Specific and actionable with real parameter values from examples
@@ -149,11 +149,6 @@ class TestPlanGenerator:
     def _generate_page_test_plan(self, page_url: str, page_analysis: PageAnalysis, tool_docs: ToolDocumentation) -> Optional[PageTestPlan]:
         """Generate test plan for a single page"""
         
-        # Determine tool type
-        tool_type = "service"  # default
-        if page_analysis.overview:
-            tool_type = str(page_analysis.overview[0].type)
-        
         # Convert page analysis to JSON for DSPy
         import json
         page_data = page_analysis.dict()
@@ -164,7 +159,6 @@ class TestPlanGenerator:
                 page_url=page_url,
                 page_analysis=json.dumps(page_data),
                 raw_content=page_analysis.content,
-                tool_type=tool_type,
                 agent_instructions=self.instructions
             )
             

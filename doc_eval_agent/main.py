@@ -20,6 +20,16 @@ from enum import Enum
 from pydantic import BaseModel
 from pathlib import Path
 from enum import Enum
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+# set litellm logging level to WARNING
+logging.getLogger("litellm").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("LiteLLM").setLevel(logging.WARNING)
 
 # Import our pipeline
 from doc_eval_agent.test import DeveloperToolTestingPipeline, PipelineConfig
@@ -99,6 +109,33 @@ async def view_results(request: Request, run_id: str):
 async def list_runs():
     """List all pipeline runs"""
     return {"runs": list(pipeline_runs.values())}
+
+@app.get("/demos", response_class=HTMLResponse)
+async def demos(request: Request):
+    """Display demo results from pipeline_state.json files"""
+    demos_dir = Path(__file__).parent.parent / "demos"
+    
+    # Read available pipeline_state.json files
+    demo_files = {}
+    if demos_dir.exists():
+        for file in demos_dir.glob("*-pipeline_state.json"):
+            try:
+                with open(file, 'r') as f:
+                    data = json.load(f)
+                    # Extract demo name from filename (remove -pipeline_state.json suffix)
+                    demo_name = file.stem.replace("-pipeline_state", "")
+                    demo_files[demo_name] = data
+            except Exception as e:
+                demo_name = file.stem.replace("-pipeline_state", "")
+                demo_files[demo_name] = {"error": f"Failed to load: {str(e)}"}
+    
+    # Convert demo_files to serializable format
+    serializable_demos = serialize_data(demo_files)
+    
+    return templates.TemplateResponse("demos.html", {
+        "request": request,
+        "demo_files": serializable_demos
+    })
 
 def serialize_data(obj):
     """Recursively convert datetime objects and enums to strings for JSON serialization"""

@@ -125,6 +125,10 @@ def execute_code(code: str):
         if context:
             set_environment_variables_thread_safe(context)
         
+        # Create a safe exit function that doesn't terminate the application
+        def safe_exit(code=0):
+            raise SystemExit(code)
+        
         # Basic execution environment
         exec_globals = {
             '__builtins__': __builtins__,
@@ -132,6 +136,7 @@ def execute_code(code: str):
             'json': json,
             'subprocess': subprocess,
             'sys': sys,
+            'exit': safe_exit,  # Override exit to prevent app termination
         }
         
         # Capture output
@@ -151,6 +156,11 @@ def execute_code(code: str):
         output = '\n'.join(captured_output) if captured_output else "Code executed successfully (no output)"
         
         return f"SUCCESS: Code executed in {execution_time:.2f}s\nOutput:\n{output}"
+        
+    except SystemExit as e:
+        execution_time = time.time() - start_time
+        output = '\n'.join(captured_output) if captured_output else "No output before exit"
+        return f"EXIT: Code called exit({e.code})\nTime: {execution_time:.2f}s\nOutput:\n{output}"
         
     except ImportError as e:
         execution_time = time.time() - start_time

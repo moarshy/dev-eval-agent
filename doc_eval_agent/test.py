@@ -20,6 +20,7 @@ from enum import Enum
 from pydantic import BaseModel, Field
 import traceback
 import os
+import logging
 from dotenv import load_dotenv
 
 # DSPy configuration
@@ -31,6 +32,8 @@ from .test_plan import TestPlanGenerator, PageTestPlan
 from .code_execution import ParallelTestExecutor, TestResult
 from .report import IntelligentReporter, PageReport, OverallReport
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 dspy.configure(lm=dspy.LM("gemini/gemini-2.5-flash", max_tokens=30000))
@@ -215,15 +218,15 @@ class DeveloperToolTestingPipeline:
         """Stage 1: Fetch documentation pages"""
         
         self.state.current_stage = "fetching_pages"
-        print(f"\n📥 STAGE 1: FETCHING PAGES")
-        print("-" * 40)
+        logger.info(f"\n📥 STAGE 1: FETCHING PAGES")
+        logger.info("-" * 40)
         
         try:
             # Use crawl4ai fetcher (following fetcher.ipynb pattern)
             from .doc_ingestion.crawl4ai import create_crawl4ai_fetcher
             
-            print(f"🕷️  Crawling: {self.config.base_url}")
-            print(f"📊 Max pages: {self.config.max_pages}, Max depth: {self.config.max_depth}")
+            logger.info(f"🕷️  Crawling: {self.config.base_url}")
+            logger.info(f"📊 Max pages: {self.config.max_pages}, Max depth: {self.config.max_depth}")
             
             # Create fetcher and fetch content
             start_time = time.time()
@@ -238,12 +241,12 @@ class DeveloperToolTestingPipeline:
             raw_content = fetcher.fetch(self.config.base_url)
             fetch_duration = time.time() - start_time
             
-            print(f"✅ Fetching completed in {fetch_duration:.2f}s")
-            print(f"📄 Found {len(raw_content.content)} pages")
+            logger.info(f"✅ Fetching completed in {fetch_duration:.2f}s")
+            logger.info(f"📄 Found {len(raw_content.content)} pages")
             
             # POST-PROCESSING: Deduplicate URLs by normalizing trailing slashes
             deduplicated_content = self._deduplicate_urls(raw_content.content)
-            print(f"🔄 After deduplication: {len(deduplicated_content)} pages")
+            logger.info(f"🔄 After deduplication: {len(deduplicated_content)} pages")
             
             # Process pages directly (content already has URL->content mapping)
             processed_count = 0
@@ -259,11 +262,11 @@ class DeveloperToolTestingPipeline:
                     self.state.total_pages += 1
                     processed_count += 1
                     
-                    print(f"✅ Processed: {url}")
+                    logger.info(f"✅ Processed: {url}")
                 else:
-                    print(f"⏭️  Skipped: {url}")
+                    logger.info(f"⏭️  Skipped: {url}")
             
-            print(f"\n📊 Processed {processed_count} of {len(raw_content.content)} fetched pages")
+            logger.info(f"\n📊 Processed {processed_count} of {len(raw_content.content)} fetched pages")
             return True
             
         except Exception as e:
@@ -288,11 +291,11 @@ class DeveloperToolTestingPipeline:
             
             if normalized_url in normalized_to_original:
                 original_url = normalized_to_original[normalized_url]
-                print(f"🔄 Deduplicating: {url} -> {normalized_url} (keeping {original_url})")
+                logger.info(f"🔄 Deduplicating: {url} -> {normalized_url} (keeping {original_url})")
                 
                 # If the new content is longer, prefer it
                 if len(page_content) > len(deduplicated_content.get(original_url, "")):
-                    print(f"   📝 Replacing with longer content ({len(page_content)} > {len(deduplicated_content.get(original_url, ''))} chars)")
+                    logger.info(f"   📝 Replacing with longer content ({len(page_content)} > {len(deduplicated_content.get(original_url, ''))} chars)")
                     deduplicated_content[original_url] = page_content
             else:
                 # First time seeing this normalized URL
@@ -332,7 +335,7 @@ class DeveloperToolTestingPipeline:
         self.state.completed_pages = completed
         self.state.failed_pages = failed
         
-        print(f"📊 Final statistics: {completed} completed, {failed} failed out of {self.state.total_pages} total pages")
+        logger.info(f"📊 Final statistics: {completed} completed, {failed} failed out of {self.state.total_pages} total pages")
     
     def _should_process_url(self, url: str) -> bool:
         """Check if URL should be processed based on include/exclude rules"""
@@ -361,22 +364,21 @@ class DeveloperToolTestingPipeline:
         """Stage 2: Analyze documentation content"""
         
         self.state.current_stage = "analyzing_content"
-        print(f"\n🔍 STAGE 2: ANALYZING CONTENT")
-        print("-" * 40)
+        logger.info(f"\n🔍 STAGE 2: ANALYZING CONTENT")
+        logger.info("-" * 40)
         
         try:
             # Prepare raw content for analysis
             from .doc_ingestion.fetcher import RawContent
-            
             content_dict = {}
             for url, page in self.state.pages.items():
                 if page.raw_content:
                     content_dict[url] = page.raw_content
             
             if not content_dict:
-                print("⚠️  No content available for analysis")
+                logger.info("⚠️  No content available for analysis")
                 return True
-            
+                        
             raw_content = RawContent(
                 source_type="website",
                 source_url=self.config.base_url,
@@ -386,7 +388,7 @@ class DeveloperToolTestingPipeline:
             )
             
             # Run analysis
-            print(f"🧠 Analyzing {len(content_dict)} pages with DSPy...")
+            logger.info(f"🧠 Analyzing {len(content_dict)} pages with DSPy...")
             start_time = time.time()
             
             analysis_result = self.document_processor.process(raw_content)
@@ -398,15 +400,15 @@ class DeveloperToolTestingPipeline:
                     self.state.pages[url].analysis_result = page_analysis
                     self.state.pages[url].analysis_time = time.time() - start_time
                     self.state.pages[url].analysis_status = StageStatus.COMPLETED
-                    print(f"✅ Analyzed: {url}")
+                    logger.info(f"✅ Analyzed: {url}")
             
-            print(f"\n📊 Analyzed {len(analysis_result.get('pages', {}))} pages")
+            logger.info(f"\n📊 Analyzed {len(analysis_result.get('pages', {}))} pages")
             return True
             
         except Exception as e:
             error_msg = f"Failed to analyze content: {str(e)}"
             self.state.pipeline_errors.append(error_msg)
-            print(f"❌ {error_msg}")
+            logger.info(f"❌ {error_msg}")
             traceback.print_exc()
             return False
     
@@ -414,8 +416,8 @@ class DeveloperToolTestingPipeline:
         """Stage 3: Generate test plans"""
         
         self.state.current_stage = "generating_test_plans"
-        print(f"\n📋 STAGE 3: GENERATING TEST PLANS")
-        print("-" * 40)
+        logger.info(f"\n📋 STAGE 3: GENERATING TEST PLANS")
+        logger.info("-" * 40)
         
         try:
             # Create tool documentation from analysis results
@@ -429,7 +431,7 @@ class DeveloperToolTestingPipeline:
                     tool_docs.pages[url] = page_analysis
             
             # Generate test plans
-            print(f"📝 Generating test plans for {len(tool_docs.pages)} pages...")
+            logger.info(f"📝 Generating test plans for {len(tool_docs.pages)} pages...")
             start_time = time.time()
             
             page_test_plans = self.test_plan_generator.generate_test_plan(tool_docs)
@@ -442,15 +444,15 @@ class DeveloperToolTestingPipeline:
                     self.state.pages[url].test_plan = test_plan
                     self.state.pages[url].test_plan_time = time.time() - start_time
                     self.state.pages[url].test_plan_status = StageStatus.COMPLETED
-                    print(f"✅ Test plan: {url} ({len(test_plan.scenarios)} scenarios)")
+                    logger.info(f"✅ Test plan: {url} ({len(test_plan.scenarios)} scenarios)")
             
-            print(f"\n📊 Generated test plans for {len(page_test_plans)} pages")
+            logger.info(f"\n📊 Generated test plans for {len(page_test_plans)} pages")
             return True
             
         except Exception as e:
             error_msg = f"Failed to generate test plans: {str(e)}"
             self.state.pipeline_errors.append(error_msg)
-            print(f"❌ {error_msg}")
+            logger.info(f"❌ {error_msg}")
             traceback.print_exc()
             return False
     
@@ -458,8 +460,8 @@ class DeveloperToolTestingPipeline:
         """Stage 4: Execute tests in parallel"""
         
         self.state.current_stage = "executing_tests"
-        print(f"\n⚡ STAGE 4: EXECUTING TESTS")
-        print("-" * 40)
+        logger.info(f"\n⚡ STAGE 4: EXECUTING TESTS")
+        logger.info("-" * 40)
         
         try:
             # Collect all test scenarios
@@ -478,10 +480,10 @@ class DeveloperToolTestingPipeline:
             
             # Prepare context
             context = {**self.config.api_keys, **self.config.context}
-            print(f"🔍 Context: {context}")
+            logger.info(f"🔍 Context: {context}")
             
             # Execute tests in parallel
-            print(f"🚀 Executing {len(all_scenarios)} test scenarios...")
+            logger.info(f"🚀 Executing {len(all_scenarios)} test scenarios...")
             start_time = time.time()
             
             page_content = "Combined documentation content for testing"
@@ -503,13 +505,13 @@ class DeveloperToolTestingPipeline:
                     page.errors.append("No test results received")
             
             success_count = sum(1 for r in test_results if r.passed.value in ["PASSED", "MINOR_FAILURE"])
-            print(f"\n📊 Executed {len(test_results)} tests, {success_count} successful")
+            logger.info(f"\n📊 Executed {len(test_results)} tests, {success_count} successful")
             return True
             
         except Exception as e:
             error_msg = f"Failed to execute tests: {str(e)}"
             self.state.pipeline_errors.append(error_msg)
-            print(f"❌ {error_msg}")
+            logger.info(f"❌ {error_msg}")
             traceback.print_exc()
             return False
     
@@ -517,8 +519,8 @@ class DeveloperToolTestingPipeline:
         """Stage 5: Generate intelligent reports"""
         
         self.state.current_stage = "generating_reports"
-        print(f"\n📊 STAGE 5: GENERATING REPORTS")
-        print("-" * 40)
+        logger.info(f"\n📊 STAGE 5: GENERATING REPORTS")
+        logger.info("-" * 40)
         
         try:
             # Collect test plans and results
@@ -538,7 +540,7 @@ class DeveloperToolTestingPipeline:
                 return True
             
             # Generate reports
-            print(f"🤖 Generating intelligent reports with DSPy...")
+            logger.info(f"🤖 Generating intelligent reports with DSPy...")
             start_time = time.time()
             
             page_reports, overall_report = self.reporter.generate_full_report(
@@ -564,13 +566,13 @@ class DeveloperToolTestingPipeline:
             report_filename = self.reporter.save_json_report(page_reports, overall_report)
             self.state.output_files.append(report_filename)
             
-            print(f"\n📊 Generated reports for {len(page_reports)} pages")
+            logger.info(f"\n📊 Generated reports for {len(page_reports)} pages")
             return True
             
         except Exception as e:
             error_msg = f"Failed to generate reports: {str(e)}"
             self.state.pipeline_errors.append(error_msg)
-            print(f"❌ {error_msg}")
+            logger.info(f"❌ {error_msg}")
             traceback.print_exc()
             return False
     
@@ -585,29 +587,29 @@ class DeveloperToolTestingPipeline:
                 json.dump(self.state.model_dump(), f, indent=2, default=str)
             
             self.state.output_files.append(filename)
-            print(f"\n💾 Pipeline state saved to: {filename}")
+            logger.info(f"\n💾 Pipeline state saved to: {filename}")
             
         except Exception as e:
-            print(f"⚠️ Failed to save pipeline state: {e}")
+            logger.info(f"⚠️ Failed to save pipeline state: {e}")
     
     def print_pipeline_summary(self):
         """Print a summary of the pipeline execution"""
         
-        print(f"\n📈 PIPELINE EXECUTION SUMMARY")
-        print("=" * 50)
-        print(f"Tool: {self.config.tool_name}")
-        print(f"Total Pages: {self.state.total_pages}")
-        print(f"Completed: {sum(1 for p in self.state.pages.values() if p.report_status == StageStatus.COMPLETED)}")
-        print(f"Failed: {sum(1 for p in self.state.pages.values() if StageStatus.FAILED in [p.fetch_status, p.analysis_status, p.test_plan_status, p.execution_status, p.report_status])}")
+        logger.info(f"\n📈 PIPELINE EXECUTION SUMMARY")
+        logger.info("=" * 50)
+        logger.info(f"Tool: {self.config.tool_name}")
+        logger.info(f"Total Pages: {self.state.total_pages}")
+        logger.info(f"Completed: {sum(1 for p in self.state.pages.values() if p.report_status == StageStatus.COMPLETED)}")
+        logger.info(f"Failed: {sum(1 for p in self.state.pages.values() if StageStatus.FAILED in [p.fetch_status, p.analysis_status, p.test_plan_status, p.execution_status, p.report_status])}")
         
         if self.state.start_time and self.state.end_time:
             duration = self.state.end_time - self.state.start_time
-            print(f"Duration: {duration.total_seconds():.1f} seconds")
+            logger.info(f"Duration: {duration.total_seconds():.1f} seconds")
         
         if self.state.output_files:
-            print(f"\nOutput Files:")
+            logger.info(f"\nOutput Files:")
             for file in self.state.output_files:
-                print(f"  📄 {file}")
+                logger.info(f"  📄 {file}")
 
 # Convenience function for quick pipeline execution
 def run_complete_testing_pipeline(

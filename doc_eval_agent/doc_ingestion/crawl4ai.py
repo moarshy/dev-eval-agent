@@ -189,7 +189,7 @@ class Crawl4AIFetcher(ContentFetcher):
     async def _simple_crawl(self, crawler: AsyncWebCrawler, url: str) -> Optional[Dict]:
         """Simple single-page crawling"""
         run_config = CrawlerRunConfig(
-            cache_mode=CacheMode.ENABLED if self.config.cache_enabled else CacheMode.DISABLED,
+            cache_mode=CacheMode.BYPASS,
             word_count_threshold=self.config.word_count_threshold,
             remove_overlay_elements=self.config.remove_overlay_elements,
             process_iframes=True,
@@ -242,7 +242,7 @@ class Crawl4AIFetcher(ContentFetcher):
         run_config = CrawlerRunConfig(
             deep_crawl_strategy=strategy,
             scraping_strategy=LXMLWebScrapingStrategy(),
-            cache_mode=CacheMode.ENABLED if self.config.cache_enabled else CacheMode.DISABLED,
+            cache_mode=CacheMode.BYPASS,
             word_count_threshold=self.config.word_count_threshold,
             remove_overlay_elements=self.config.remove_overlay_elements,
             process_iframes=True,

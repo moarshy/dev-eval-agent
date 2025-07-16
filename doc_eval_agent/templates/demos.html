@@ -1,0 +1,606 @@
+{% extends "base.html" %}
+
+{% block title %}Demo Results - Developer Tool Testing Pipeline{% endblock %}
+
+{% block content %}
+<div class="fade-in" x-data="demosPage()" x-init="init()">
+    
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                    🎯 Demo Results
+                </h1>
+                <p class="text-gray-300 mt-2">
+                    View results from API testing demos including OpenWeather API and REST Countries
+                </p>
+            </div>
+            <div class="flex items-center gap-4">
+                <button 
+                    @click="refreshData()"
+                    class="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                    🔄 Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Demo Selection -->
+    <div class="mb-8">
+        <h2 class="text-2xl font-bold mb-4">📊 Available Demos</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <template x-for="[demoName, demoData] in Object.entries(demoFiles)" :key="demoName">
+                <div 
+                    @click="selectDemo(demoName)"
+                    :class="selectedDemo === demoName ? 'ring-2 ring-blue-500 bg-blue-900/20' : ''"
+                    class="glass rounded-lg p-4 cursor-pointer hover:bg-white/10 transition-all duration-300"
+                >
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="font-semibold text-white" x-text="getDemoDisplayName(demoName)"></h3>
+                        <span class="text-xs text-gray-400" x-text="demoName"></span>
+                    </div>
+                    <div x-show="demoData.error" class="text-red-300 text-sm" x-text="demoData.error"></div>
+                    <div x-show="!demoData.error" class="text-sm text-gray-300">
+                        <div>Status: <span x-text="demoData.current_stage || 'unknown'"></span></div>
+                        <div>Pages: <span x-text="Object.keys(demoData.pages || {}).length"></span></div>
+                        <div>Duration: <span x-text="getDuration(demoData)"></span></div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Selected Demo Results -->
+    <div x-show="selectedDemo && currentDemoData && !currentDemoData.error" class="space-y-8">
+        
+        <!-- Pipeline Summary -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="glass rounded-xl p-6 text-center">
+                <div class="text-3xl font-bold text-blue-400" x-text="Object.keys(currentDemoData.pages || {}).length"></div>
+                <div class="text-gray-300">Total Pages</div>
+            </div>
+            <div class="glass rounded-xl p-6 text-center">
+                <div class="text-3xl font-bold text-green-400" x-text="getTotalPassedTests()"></div>
+                <div class="text-gray-300">Passed Tests</div>
+            </div>
+            <div class="glass rounded-xl p-6 text-center">
+                <div class="text-3xl font-bold text-red-400" x-text="getTotalFailedTests()"></div>
+                <div class="text-gray-300">Failed Tests</div>
+            </div>
+            <div class="glass rounded-xl p-6 text-center">
+                <div class="text-3xl font-bold text-purple-400" x-text="getTotalTests()"></div>
+                <div class="text-gray-300">Total Tests</div>
+            </div>
+        </div>
+
+        <!-- Overall Report -->
+        <div x-show="currentDemoData.overall_report" class="glass rounded-xl p-6">
+            <h2 class="text-2xl font-bold mb-6 flex items-center gap-2">
+                📋 Overall Report
+                <button 
+                    @click="copyToClipboard(JSON.stringify(currentDemoData.overall_report, null, 2))"
+                    class="text-sm px-3 py-1 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
+                >
+                    Copy JSON
+                </button>
+            </h2>
+            
+            <div class="space-y-6">
+                <!-- Summary Stats -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-gray-800/30 rounded-lg p-4">
+                        <div class="text-sm text-gray-400">Total Test Cases</div>
+                        <div class="text-xl font-bold" x-text="currentDemoData.overall_report?.total_tests || 0"></div>
+                    </div>
+                    <div class="bg-gray-800/30 rounded-lg p-4">
+                        <div class="text-sm text-gray-400">Total Pages</div>
+                        <div class="text-xl font-bold text-blue-400" x-text="currentDemoData.overall_report?.total_pages || 0"></div>
+                    </div>
+                    <div class="bg-gray-800/30 rounded-lg p-4">
+                        <div class="text-sm text-gray-400">Execution Time</div>
+                        <div class="text-xl font-bold text-purple-400" x-text="(currentDemoData.overall_report?.total_execution_time || 0).toFixed(1) + 's'"></div>
+                    </div>
+                    <div class="bg-gray-800/30 rounded-lg p-4">
+                        <div class="text-sm text-gray-400">Success Rate</div>
+                        <div class="text-xl font-bold" x-text="(currentDemoData.overall_report?.overall_success_rate || 0).toFixed(1) + '%'"></div>
+                    </div>
+                </div>
+
+                <!-- Executive Summary -->
+                <div x-show="currentDemoData.overall_report?.executive_summary" class="bg-gradient-to-r from-blue-900/30 to-purple-900/30 rounded-lg p-6 mb-6">
+                    <h3 class="text-lg font-bold mb-3 text-blue-300">📋 Executive Summary</h3>
+                    <div class="text-gray-300 whitespace-pre-wrap" x-text="currentDemoData.overall_report.executive_summary"></div>
+                </div>
+
+                <!-- Documentation Assessment -->
+                <div x-show="currentDemoData.overall_report?.overall_documentation_assessment" class="bg-gradient-to-r from-green-900/30 to-blue-900/30 rounded-lg p-6 mb-6">
+                    <h3 class="text-lg font-bold mb-3 text-green-300">📚 Documentation Assessment</h3>
+                    <div class="text-gray-300 whitespace-pre-wrap" x-text="currentDemoData.overall_report.overall_documentation_assessment"></div>
+                </div>
+
+                <!-- AI Insights Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Systemic Issues -->
+                    <div x-show="currentDemoData.overall_report?.systemic_issues?.length > 0" class="bg-gradient-to-r from-red-900/20 to-orange-900/20 rounded-lg p-6">
+                        <h3 class="text-lg font-bold mb-3 text-red-300">🚨 Systemic Issues</h3>
+                        <div class="space-y-2">
+                            <template x-for="issue in currentDemoData.overall_report.systemic_issues">
+                                <div class="ml-4 text-gray-300" x-text="'• ' + issue"></div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Strength Areas -->
+                    <div x-show="currentDemoData.overall_report?.strength_areas?.length > 0" class="bg-gradient-to-r from-green-900/20 to-teal-900/20 rounded-lg p-6">
+                        <h3 class="text-lg font-bold mb-3 text-green-300">🏆 Strength Areas</h3>
+                        <div class="space-y-2">
+                            <template x-for="strength in currentDemoData.overall_report.strength_areas">
+                                <div class="ml-4 text-gray-300" x-text="'• ' + strength"></div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Immediate Actions -->
+                    <div x-show="currentDemoData.overall_report?.immediate_actions?.length > 0" class="bg-gradient-to-r from-orange-900/20 to-red-900/20 rounded-lg p-6">
+                        <h3 class="text-lg font-bold mb-3 text-orange-300">⚡ Immediate Actions</h3>
+                        <div class="space-y-2">
+                            <template x-for="action in currentDemoData.overall_report.immediate_actions">
+                                <div class="ml-4 text-gray-300" x-text="'• ' + action"></div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Strategic Recommendations -->
+                    <div x-show="currentDemoData.overall_report?.strategic_recommendations?.length > 0" class="bg-gradient-to-r from-purple-900/20 to-blue-900/20 rounded-lg p-6">
+                        <h3 class="text-lg font-bold mb-3 text-purple-300">💡 Strategic Recommendations</h3>
+                        <div class="space-y-2">
+                            <template x-for="recommendation in currentDemoData.overall_report.strategic_recommendations">
+                                <div class="ml-4 text-gray-300" x-text="'• ' + recommendation"></div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Best/Worst Performing Pages -->
+                <div x-show="currentDemoData.overall_report?.best_performing_pages?.length > 0 || currentDemoData.overall_report?.most_problematic_pages?.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                    <div x-show="currentDemoData.overall_report?.best_performing_pages?.length > 0" class="bg-gradient-to-r from-green-900/20 to-emerald-900/20 rounded-lg p-6">
+                        <h3 class="text-lg font-bold mb-3 text-green-300">🌟 Best Performing Pages</h3>
+                        <div class="space-y-2">
+                            <template x-for="page in currentDemoData.overall_report.best_performing_pages">
+                                <div class="text-sm text-gray-300 truncate" x-text="page"></div>
+                            </template>
+                        </div>
+                    </div>
+                    <div x-show="currentDemoData.overall_report?.most_problematic_pages?.length > 0" class="bg-gradient-to-r from-red-900/20 to-pink-900/20 rounded-lg p-6">
+                        <h3 class="text-lg font-bold mb-3 text-red-300">🔍 Most Problematic Pages</h3>
+                        <div class="space-y-2">
+                            <template x-for="page in currentDemoData.overall_report.most_problematic_pages">
+                                <div class="text-sm text-gray-300 truncate" x-text="page"></div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Results by Page -->
+        <div x-show="getAllTestResults().length > 0">
+            <h2 class="text-2xl font-bold mb-6">🧪 Test Results by Page</h2>
+            
+            <!-- Filter and Search -->
+            <div class="mb-4 flex gap-4">
+                <input 
+                    x-model="testFilter"
+                    type="text" 
+                    placeholder="Search tests..."
+                    class="flex-1 px-4 py-2 bg-gray-800/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                <select 
+                    x-model="statusFilter"
+                    class="px-4 py-2 bg-gray-800/50 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                    <option value="">All Status</option>
+                    <option value="PASSED">Passed</option>
+                    <option value="FAILED">Failed</option>
+                    <option value="MINOR_FAILURE">Minor Failure</option>
+                    <option value="MAJOR_FAILURE">Major Failure</option>
+                </select>
+            </div>
+
+            <!-- Test Results Grid -->
+            <div class="space-y-6">
+                <template x-for="pageUrl in getFilteredPages()" :key="pageUrl">
+                    <div class="glass rounded-xl overflow-hidden border border-white/10">
+                        <!-- Page Header -->
+                        <div 
+                            @click="togglePageExpansion(pageUrl)"
+                            class="p-6 cursor-pointer hover:bg-white/5 transition-colors border-b border-white/10"
+                        >
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-3 mb-3">
+                                        <div class="font-medium text-blue-300 truncate text-lg" x-text="pageUrl"></div>
+                                        <div class="flex-shrink-0">
+                                            <span 
+                                                :class="getPageStatusColor(pageUrl)"
+                                                class="px-3 py-1 rounded-full text-sm font-bold"
+                                                x-text="getPageStatusText(pageUrl)"
+                                            ></span>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Test Summary -->
+                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                                        <div class="bg-gray-800/30 rounded-lg p-3">
+                                            <div class="text-xs text-gray-400">Total Tests</div>
+                                            <div class="text-lg font-bold text-white" x-text="getPageTestResults(pageUrl).length"></div>
+                                        </div>
+                                        <div class="bg-gray-800/30 rounded-lg p-3">
+                                            <div class="text-xs text-gray-400">Passed</div>
+                                            <div class="text-lg font-bold text-green-400" x-text="getPagePassedCount(pageUrl)"></div>
+                                        </div>
+                                        <div class="bg-gray-800/30 rounded-lg p-3">
+                                            <div class="text-xs text-gray-400">Failed</div>
+                                            <div class="text-lg font-bold text-red-400" x-text="getPageFailedCount(pageUrl)"></div>
+                                        </div>
+                                        <div class="bg-gray-800/30 rounded-lg p-3">
+                                            <div class="text-xs text-gray-400">Avg Time</div>
+                                            <div class="text-lg font-bold text-purple-400" x-text="getPageAvgTime(pageUrl)"></div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Progress Bar -->
+                                    <div class="mb-3">
+                                        <div class="flex justify-between text-xs text-gray-400 mb-1">
+                                            <span>Test Results</span>
+                                            <span x-text="getPagePassedCount(pageUrl) + '/' + getPageTestResults(pageUrl).length + ' passed'"></span>
+                                        </div>
+                                        <div class="w-full bg-gray-700 rounded-full h-2">
+                                            <div 
+                                                class="bg-gradient-to-r from-green-500 to-green-400 h-2 rounded-full transition-all duration-500"
+                                                :style="`width: ${getPageSuccessRate(pageUrl)}%`"
+                                            ></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex-shrink-0 ml-4">
+                                    <span 
+                                        :class="expandedPages.includes(pageUrl) ? 'rotate-90' : ''"
+                                        class="transition-transform text-gray-400 text-xl"
+                                    >▶</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Expanded Test Results -->
+                        <div x-show="expandedPages.includes(pageUrl)" x-collapse class="divide-y divide-white/10">
+                            <template x-for="test in getPageTestResults(pageUrl)" :key="test.scenario_name">
+                                <div class="p-6">
+                                    <div class="flex items-start justify-between mb-4">
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center gap-3 mb-2">
+                                                <h4 class="font-medium text-white" x-text="test.scenario_name"></h4>
+                                                <span 
+                                                    :class="getTestStatusColor(test.passed)"
+                                                    class="px-2 py-1 rounded-full text-xs font-bold"
+                                                    x-text="test.passed.replace('TestStatus.', '')"
+                                                ></span>
+                                            </div>
+                                            <div class="text-sm text-gray-400 mb-3">
+                                                Execution Time: <span x-text="test.execution_time.toFixed(2) + 's'"></span>
+                                            </div>
+                                            
+                                            <!-- Final Reasoning -->
+                                            <div x-show="test.final_reasoning" class="bg-blue-900/20 rounded-lg p-4 mb-4">
+                                                <h5 class="font-semibold text-blue-300 mb-2">🎯 Final Reasoning</h5>
+                                                <div class="text-gray-300 text-sm whitespace-pre-wrap" x-text="test.final_reasoning"></div>
+                                            </div>
+
+                                            <!-- Trajectory Toggle -->
+                                            <button 
+                                                @click="toggleTrajectory(test.scenario_name)"
+                                                class="flex items-center gap-2 text-sm text-purple-400 hover:text-purple-300 transition-colors"
+                                            >
+                                                <span x-show="!showTrajectory.includes(test.scenario_name)">🔍 Show Execution Trajectory</span>
+                                                <span x-show="showTrajectory.includes(test.scenario_name)">🗂️ Hide Execution Trajectory</span>
+                                            </button>
+                                            
+                                            <!-- Trajectory Display -->
+                                            <div x-show="showTrajectory.includes(test.scenario_name)" class="mt-4">
+                                                <h5 class="font-semibold text-purple-300 mb-3">🔄 Execution Trajectory</h5>
+                                                <div class="space-y-4">
+                                                    <template x-for="step in getOrderedTrajectory(test.trajectory)" :key="step.key">
+                                                        <div class="bg-gray-800/30 rounded-lg p-3">
+                                                            <div class="text-xs text-gray-400 mb-1 capitalize flex items-center gap-2">
+                                                                <span x-show="step.key.startsWith('thought_')">🤔</span>
+                                                                <span x-show="step.key.startsWith('tool_name_')">🛠️</span>
+                                                                <span x-show="step.key.startsWith('tool_args_')">⚙️</span>
+                                                                <span x-show="step.key.startsWith('observation_')">👁️</span>
+                                                                <span x-text="step.key.replace('_', ' ')"></span>
+                                                            </div>
+                                                            <div class="text-sm text-gray-300 font-mono whitespace-pre-wrap" x-text="typeof step.value === 'object' ? JSON.stringify(step.value, null, 2) : step.value"></div>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- No Demo Selected / Error State -->
+    <div x-show="!selectedDemo" class="glass rounded-lg p-8 text-center">
+        <div class="mb-4">
+            <svg class="w-16 h-16 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+        </div>
+        <h2 class="text-2xl font-semibold mb-2 text-white">Select a Demo</h2>
+        <p class="text-gray-400 mb-6">
+            Choose a demo from the list above to view detailed results and analysis.
+        </p>
+    </div>
+
+    <!-- Error State -->
+    <div x-show="selectedDemo && currentDemoData && currentDemoData.error" class="glass rounded-lg p-8 text-center">
+        <div class="mb-4">
+            <svg class="w-16 h-16 mx-auto text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+        </div>
+        <h2 class="text-2xl font-semibold mb-2 text-red-400">Demo Loading Error</h2>
+        <p class="text-gray-400 mb-6" x-text="currentDemoData?.error"></p>
+    </div>
+
+    <!-- Full Demo State (Raw Data) -->
+    <div x-show="showFullState && selectedDemo" class="mb-8">
+        <div class="glass rounded-xl p-6">
+            <h2 class="text-2xl font-bold mb-4">🔧 Full Demo State</h2>
+            <pre class="code-block rounded-lg p-4 text-xs overflow-x-auto max-h-96" x-text="JSON.stringify(currentDemoData, null, 2)"></pre>
+        </div>
+    </div>
+
+    <!-- Debug Controls -->
+    <div class="text-center mt-8">
+        <button 
+            @click="showFullState = !showFullState"
+            class="text-sm px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
+        >
+            <span x-show="!showFullState">Show Full State</span>
+            <span x-show="showFullState">Hide Full State</span>
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Data from server -->
+<script type="application/json" id="demo-data">{{ demo_files | tojson | safe }}</script>
+
+<script>
+function demosPage() {
+    return {
+        demoFiles: JSON.parse(document.getElementById('demo-data').textContent),
+        selectedDemo: null,
+        testFilter: '',
+        statusFilter: '',
+        expandedPages: [],
+        showTrajectory: [],
+        showFullState: false,
+        
+        init() {
+            // Auto-select the first demo if available
+            const demoNames = Object.keys(this.demoFiles);
+            if (demoNames.length > 0) {
+                this.selectedDemo = demoNames[0];
+            }
+        },
+        
+        get currentDemoData() {
+            return this.selectedDemo ? this.demoFiles[this.selectedDemo] : null;
+        },
+        
+        selectDemo(demoName) {
+            this.selectedDemo = demoName;
+            this.expandedPages = [];
+            this.showTrajectory = [];
+        },
+        
+        getDemoDisplayName(demoName) {
+            if (demoName.toLowerCase().includes('openweather')) {
+                return '🌤️ OpenWeather API Demo';
+            } else if (demoName.toLowerCase().includes('rest')) {
+                return '🌍 REST Countries Demo';
+            } else {
+                return '📊 ' + demoName.replace('-', ' ').replace('_', ' ').split(' ').map(word => 
+                    word.charAt(0).toUpperCase() + word.slice(1)
+                ).join(' ');
+            }
+        },
+        
+        getDuration(demoData) {
+            if (!demoData.start_time || !demoData.end_time) return 'N/A';
+            const start = new Date(demoData.start_time);
+            const end = new Date(demoData.end_time);
+            const diff = Math.floor((end - start) / 1000);
+            return formatDuration(diff);
+        },
+        
+        getAllTestResults() {
+            if (!this.currentDemoData?.pages) return [];
+            
+            let allTests = [];
+            Object.entries(this.currentDemoData.pages).forEach(([pageUrl, page]) => {
+                if (page.test_results && page.test_results.length > 0) {
+                    page.test_results.forEach(test => {
+                        allTests.push({
+                            ...test,
+                            pageUrl: pageUrl
+                        });
+                    });
+                }
+            });
+            return allTests;
+        },
+        
+        getFilteredPages() {
+            if (!this.currentDemoData?.pages) return [];
+            
+            return Object.keys(this.currentDemoData.pages).filter(pageUrl => {
+                const page = this.currentDemoData.pages[pageUrl];
+                if (!page.test_results || page.test_results.length === 0) return false;
+                
+                // Apply filters
+                if (this.testFilter) {
+                    const hasMatchingTest = page.test_results.some(test => 
+                        test.scenario_name.toLowerCase().includes(this.testFilter.toLowerCase()) ||
+                        pageUrl.toLowerCase().includes(this.testFilter.toLowerCase())
+                    );
+                    if (!hasMatchingTest) return false;
+                }
+                
+                if (this.statusFilter) {
+                    const hasMatchingStatus = page.test_results.some(test => 
+                        test.passed.includes(this.statusFilter)
+                    );
+                    if (!hasMatchingStatus) return false;
+                }
+                
+                return true;
+            });
+        },
+        
+        getPageTestResults(pageUrl) {
+            return this.currentDemoData?.pages[pageUrl]?.test_results || [];
+        },
+        
+        getPagePassedCount(pageUrl) {
+            const tests = this.getPageTestResults(pageUrl);
+            return tests.filter(test => test.passed === 'TestStatus.PASSED').length;
+        },
+        
+        getPageFailedCount(pageUrl) {
+            const tests = this.getPageTestResults(pageUrl);
+            return tests.filter(test => test.passed !== 'TestStatus.PASSED').length;
+        },
+        
+        getPageSuccessRate(pageUrl) {
+            const tests = this.getPageTestResults(pageUrl);
+            if (tests.length === 0) return 0;
+            return (this.getPagePassedCount(pageUrl) / tests.length) * 100;
+        },
+        
+        getPageAvgTime(pageUrl) {
+            const tests = this.getPageTestResults(pageUrl);
+            if (tests.length === 0) return 'N/A';
+            const totalTime = tests.reduce((sum, test) => sum + test.execution_time, 0);
+            return (totalTime / tests.length).toFixed(2) + 's';
+        },
+        
+        getPageStatusText(pageUrl) {
+            const successRate = this.getPageSuccessRate(pageUrl);
+            if (successRate === 100) return 'ALL PASSED';
+            if (successRate === 0) return 'ALL FAILED';
+            return successRate.toFixed(1) + '%';
+        },
+        
+        getPageStatusColor(pageUrl) {
+            const successRate = this.getPageSuccessRate(pageUrl);
+            if (successRate >= 80) return 'bg-green-500 text-white';
+            if (successRate >= 60) return 'bg-yellow-500 text-black';
+            return 'bg-red-500 text-white';
+        },
+        
+        getTestStatusColor(status) {
+            if (status === 'TestStatus.PASSED') return 'bg-green-500 text-white';
+            if (status === 'TestStatus.MINOR_FAILURE') return 'bg-yellow-500 text-black';
+            return 'bg-red-500 text-white';
+        },
+        
+        getTotalTests() {
+            return this.getAllTestResults().length;
+        },
+        
+        getTotalPassedTests() {
+            return this.getAllTestResults().filter(test => test.passed === 'TestStatus.PASSED').length;
+        },
+        
+        getTotalFailedTests() {
+            return this.getAllTestResults().filter(test => test.passed !== 'TestStatus.PASSED').length;
+        },
+        
+        togglePageExpansion(pageUrl) {
+            if (this.expandedPages.includes(pageUrl)) {
+                this.expandedPages = this.expandedPages.filter(p => p !== pageUrl);
+            } else {
+                this.expandedPages.push(pageUrl);
+            }
+        },
+        
+        toggleTrajectory(scenarioName) {
+            if (this.showTrajectory.includes(scenarioName)) {
+                this.showTrajectory = this.showTrajectory.filter(s => s !== scenarioName);
+            } else {
+                this.showTrajectory.push(scenarioName);
+            }
+        },
+        
+        getOrderedTrajectory(trajectory) {
+            if (!trajectory) return [];
+            
+            // Extract all trajectory steps and sort them properly
+            const steps = [];
+            
+            // Find all step numbers
+            const stepNumbers = new Set();
+            Object.keys(trajectory).forEach(key => {
+                const match = key.match(/^(thought_|tool_name_|tool_args_|observation_)(\d+)$/);
+                if (match) {
+                    stepNumbers.add(parseInt(match[2]));
+                }
+            });
+            
+            // Sort step numbers and create ordered sequence
+            Array.from(stepNumbers).sort((a, b) => a - b).forEach(stepNum => {
+                // Add in the correct order: thought, tool_name, tool_args, observation
+                const stepKeys = [
+                    `thought_${stepNum}`,
+                    `tool_name_${stepNum}`,
+                    `tool_args_${stepNum}`,
+                    `observation_${stepNum}`
+                ];
+                
+                stepKeys.forEach(key => {
+                    if (trajectory[key] !== undefined) {
+                        steps.push({
+                            key: key,
+                            value: trajectory[key],
+                            stepNum: stepNum
+                        });
+                    }
+                });
+            });
+            
+            return steps;
+        },
+        
+        async refreshData() {
+            try {
+                location.reload();
+            } catch (error) {
+                showToast('Failed to refresh data', 'error');
+            }
+        }
+    };
+}
+</script>
+{% endblock %}
