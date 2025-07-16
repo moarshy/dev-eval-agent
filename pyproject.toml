@@ -46,12 +46,12 @@ dependencies = [
 ]
 
 [project.scripts]
-devagent-web = "agents.main:main"
-devagent-cli = "agents.test:main"
+devagent-web = "doc_eval_agent.main:main"
+devagent-cli = "doc_eval_agent.test:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["agents*"]
+include = ["doc_eval_agent*"]
 
 [tool.setuptools.package-data]
-agents = ["templates/*", "templates/**/*"]
+doc_eval_agent = ["templates/*", "templates/**/*"]

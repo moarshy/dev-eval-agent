@@ -22,7 +22,7 @@ from pathlib import Path
 from enum import Enum
 
 # Import our pipeline
-from agents.test import DeveloperToolTestingPipeline, PipelineConfig
+from doc_eval_agent.test import DeveloperToolTestingPipeline, PipelineConfig
 
 app = FastAPI(title="Developer Tool Testing Pipeline", version="1.0.0")
 
