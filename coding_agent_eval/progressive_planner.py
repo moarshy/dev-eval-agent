@@ -142,25 +142,26 @@ class ProjectScratchpad(BaseModel):
         """
 
 
-class ProjectPlan(BaseModel):
-    """A specific project plan for testing agent capabilities"""
-    plan_id: str
+class UseCase(BaseModel):
+    """A specific use case for testing agent capabilities"""
+    id: str
     title: str
-    category: str = Field(..., description="Plan category: beginner, auth, integration, error_handling, performance, advanced")
+    category: str = Field(..., description="Use case category: beginner, authentication, integration, error_handling, performance, advanced")
     description: str
     main_objectives: List[str]
     success_criteria: List[str]
     expected_challenges: List[str]
     
-    # Supporting evidence from documentation
+    # Supporting evidence from documentation  
     supporting_queries: List[str] = Field(default_factory=list)
-    evidence_strength: float = Field(default=0.0, ge=0.0, le=1.0, description="How well documented this plan is (0-1)")
+    evidence_strength: float = Field(default=0.0, ge=0.0, le=1.0, description="How well documented this use case is (0-1)")
     documentation_refs: List[str] = Field(default_factory=list)
     
     # Implementation details
     estimated_difficulty: str = Field(default="medium", description="Difficulty level: easy, medium, hard")
     prerequisite_knowledge: List[str] = Field(default_factory=list)
     key_apis_or_features: List[str] = Field(default_factory=list)
+    estimated_duration_minutes: int = Field(default=20, description="Expected time to complete")
     
     @field_validator('category')
     @classmethod
@@ -328,7 +329,7 @@ Documentation Retrieved:
 Based on this documentation, analyze the query and provide insights.""")
         ])
     
-    def plan_project(self, tool_name: str, documentation_context: Optional[str] = None) -> Tuple[List[ProjectPlan], ProjectScratchpad]:
+    def plan_project(self, tool_name: str, documentation_context: Optional[str] = None) -> Tuple[List[UseCase], ProjectScratchpad]:
         """
         Main planning workflow: explore → generate → refine
         
@@ -486,7 +487,7 @@ Content: {content_preview}{'...' if len(doc.content) > 400 else ''}
     
 
     
-    def _generate_candidate_plans(self) -> List[ProjectPlan]:
+    def _generate_candidate_plans(self) -> List[UseCase]:
         """Stage 2: Generate diverse project plans based on accumulated knowledge using LLM"""
         
         # Prepare exploration data for the LLM
@@ -500,7 +501,7 @@ Content: {content_preview}{'...' if len(doc.content) > 400 else ''}
             **exploration_data
         ))
         
-        # Parse LLM response into ProjectPlan objects
+        # Parse LLM response into UseCase objects
         candidate_plans = self._parse_llm_plans_response(response.content)
         print(f"Candidate plans: {candidate_plans}")
         
@@ -555,8 +556,8 @@ Content: {content_preview}{'...' if len(doc.content) > 400 else ''}
             "low_confidence_areas": low_confidence_areas
         }
     
-    def _parse_llm_plans_response(self, response_content: str) -> List[ProjectPlan]:
-        """Parse LLM response into ProjectPlan objects"""
+    def _parse_llm_plans_response(self, response_content: str) -> List[UseCase]:
+        """Parse LLM response into UseCase objects"""
         
         try:
             # Extract JSON from response
@@ -573,9 +574,9 @@ Content: {content_preview}{'...' if len(doc.content) > 400 else ''}
             candidate_plans = []
             for plan_data in plans_data:
                 try:
-                    # Create ProjectPlan with validation
-                    plan = ProjectPlan(
-                        plan_id=plan_data.get("plan_id", f"{self.scratchpad.tool_name.lower()}_{len(candidate_plans)}"),
+                    # Create UseCase with validation
+                    plan = UseCase(
+                        id=plan_data.get("plan_id", f"{self.scratchpad.tool_name.lower()}_{len(candidate_plans)}"),
                         title=plan_data["title"],
                         category=plan_data["category"],
                         description=plan_data["description"],
@@ -600,7 +601,7 @@ Content: {content_preview}{'...' if len(doc.content) > 400 else ''}
             return []
 
     
-    def _refine_all_plans(self, candidate_plans: List[ProjectPlan]) -> List[ProjectPlan]:
+    def _refine_all_plans(self, candidate_plans: List[UseCase]) -> List[UseCase]:
         """Stage 3: Refine each plan with targeted evidence gathering"""
         
         refined_plans = []
@@ -612,7 +613,7 @@ Content: {content_preview}{'...' if len(doc.content) > 400 else ''}
         
         return refined_plans
     
-    def _refine_single_plan(self, plan: ProjectPlan) -> ProjectPlan:
+    def _refine_single_plan(self, plan: UseCase) -> UseCase:
         """Refine a single plan with targeted documentation research"""
         
         # Generate specific queries for this plan
@@ -664,7 +665,7 @@ Content: {content_preview}{'...' if len(doc.content) > 400 else ''}
         
         return plan
     
-    def save_planning_results(self, plans: List[ProjectPlan], scratchpad: ProjectScratchpad, output_path: str):
+    def save_planning_results(self, plans: List[UseCase], scratchpad: ProjectScratchpad, output_path: str):
         """Save planning results to JSON file using Pydantic serialization"""
         
         # Create a wrapper model for better structure
@@ -738,6 +739,6 @@ if __name__ == "__main__":
     planner.save_planning_results(plans, scratchpad, "./outputs/fastapi_planning_results.json")
     
     # Print summary
-    print(f"\n🎯 Generated {len(plans)} project plans:")
-    for plan in plans:
-        print(f"  • {plan.title} (difficulty: {plan.estimated_difficulty}, evidence: {plan.evidence_strength:.2f})")
+    print(f"\n🎯 Generated {len(plans)} use cases:")
+    for use_case in plans:
+        print(f"  • {use_case.title} (difficulty: {use_case.estimated_difficulty}, category: {use_case.category})")
