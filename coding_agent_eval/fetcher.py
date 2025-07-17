@@ -608,7 +608,8 @@ class GitHubFetcher(ContentFetcher):
                  github_token: Optional[str] = None,
                  include_code_files: bool = False,
                  max_file_size_mb: int = 5,
-                 clone_depth: int = 1):
+                 clone_depth: int = 1,
+                 include_folders: Optional[List[str]] = None):
         """
         Initialize GitHub fetcher
         
@@ -617,11 +618,14 @@ class GitHubFetcher(ContentFetcher):
             include_code_files: Whether to include code files alongside markdown
             max_file_size_mb: Maximum file size to process (in MB)
             clone_depth: Git clone depth (1 for shallow clone)
+            include_folders: List of folder paths to include (e.g., ['docs/en', 'guides']). 
+                           If None, includes all folders.
         """
         self.github_token = github_token
         self.include_code_files = include_code_files
         self.max_file_size_bytes = max_file_size_mb * 1024 * 1024
         self.clone_depth = clone_depth
+        self.include_folders = include_folders
         
         # File extensions to process
         self.markdown_extensions = {'.md', '.mdx', '.markdown', '.mdown'}
@@ -834,11 +838,23 @@ class GitHubFetcher(ContentFetcher):
         return metadata
     
     def _find_markdown_files(self, repo_path: Path) -> List[Path]:
-        """Find all markdown files in the repository"""
+        """Find all markdown files in the repository, optionally filtered by include_folders"""
         markdown_files = []
         
-        for ext in self.markdown_extensions:
-            markdown_files.extend(repo_path.rglob(f'*{ext}'))
+        if self.include_folders:
+            # Search only in specified folders
+            for folder in self.include_folders:
+                folder_path = repo_path / folder
+                if folder_path.exists() and folder_path.is_dir():
+                    print(f"Searching in folder: {folder}")
+                    for ext in self.markdown_extensions:
+                        markdown_files.extend(folder_path.rglob(f'*{ext}'))
+                else:
+                    print(f"Warning: Folder '{folder}' not found in repository")
+        else:
+            # Search entire repository
+            for ext in self.markdown_extensions:
+                markdown_files.extend(repo_path.rglob(f'*{ext}'))
         
         # Filter by file size and skip hidden directories
         filtered_files = []
@@ -852,6 +868,12 @@ class GitHubFetcher(ContentFetcher):
                 if file_path.stat().st_size > self.max_file_size_bytes:
                     continue
                 
+                # Additional check: if include_folders is specified, ensure file is in one of them
+                if self.include_folders:
+                    relative_path = file_path.relative_to(repo_path)
+                    if not any(str(relative_path).startswith(folder) for folder in self.include_folders):
+                        continue
+                
                 filtered_files.append(file_path)
             except Exception:
                 continue
@@ -860,11 +882,20 @@ class GitHubFetcher(ContentFetcher):
         return sorted(filtered_files)
     
     def _find_code_files(self, repo_path: Path) -> List[Path]:
-        """Find relevant code files for additional context"""
+        """Find relevant code files for additional context, optionally filtered by include_folders"""
         code_files = []
         
-        for ext in self.code_extensions:
-            code_files.extend(repo_path.rglob(f'*{ext}'))
+        if self.include_folders:
+            # Search only in specified folders
+            for folder in self.include_folders:
+                folder_path = repo_path / folder
+                if folder_path.exists() and folder_path.is_dir():
+                    for ext in self.code_extensions:
+                        code_files.extend(folder_path.rglob(f'*{ext}'))
+        else:
+            # Search entire repository
+            for ext in self.code_extensions:
+                code_files.extend(repo_path.rglob(f'*{ext}'))
         
         # Filter and prioritize
         filtered_files = []
@@ -878,6 +909,12 @@ class GitHubFetcher(ContentFetcher):
                 # Check file size
                 if file_path.stat().st_size > self.max_file_size_bytes:
                     continue
+                
+                # Additional check: if include_folders is specified, ensure file is in one of them
+                if self.include_folders:
+                    relative_path = file_path.relative_to(repo_path)
+                    if not any(str(relative_path).startswith(folder) for folder in self.include_folders):
+                        continue
                 
                 filtered_files.append(file_path)
             except Exception:
@@ -999,12 +1036,23 @@ class ContentFetcherFactory:
 # Convenience functions for common use cases
 def fetch_github_docs(repo_url: str, 
                      github_token: Optional[str] = None,
-                     include_code: bool = False) -> RawContent:
-    """Fetch documentation from GitHub repository"""
+                     include_code: bool = False,
+                     include_folders: Optional[List[str]] = None) -> RawContent:
+    """
+    Fetch documentation from GitHub repository
+    
+    Args:
+        repo_url: GitHub repository URL
+        github_token: GitHub personal access token for private repos
+        include_code: Whether to include code files alongside markdown
+        include_folders: List of folder paths to include (e.g., ['docs/en', 'guides']). 
+                        If None, includes all folders.
+    """
     return ContentFetcherFactory.fetch_documentation(
         repo_url,
         github_token=github_token,
-        include_code_files=include_code
+        include_code_files=include_code,
+        include_folders=include_folders
     )
 
 def fetch_website_docs(website_url: str,
@@ -1023,6 +1071,11 @@ if __name__ == "__main__":
     import pickle
     # Test the fetcher
     result = fetch_github_docs("https://github.com/modelcontextprotocol/docs", include_code=True)
+
+    # get the raw content and print the word count for each file
+    for file_path, content in result.content.items():
+        print(file_path)
+        print(f"Word count: {len(content.split())}")
 
     # save the result to a file as pickle
     with open("github_docs.pkl", "wb") as f:
